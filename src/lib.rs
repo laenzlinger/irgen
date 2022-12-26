@@ -68,10 +68,9 @@ pub fn generate_from_wav() -> u64 {
         panic!("No segments were processed");
     }
 
-    normalize(&mut acc, count as f64);
     let ifft = planner.plan_fft_inverse(SEGMENT_SIZE);
     ifft.process(&mut acc);
-    normalize(&mut acc, SEGMENT_SIZE as f64);
+    normalize(&mut acc, (count as usize * SEGMENT_SIZE) as f64);
     write(String::from("test/out.wav"), &acc[0..IR_SIZE]);
     nzcount / (count as u64 * 2)
 }
