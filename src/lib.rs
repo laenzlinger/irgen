@@ -5,7 +5,7 @@ use num::complex::ComplexFloat;
 use rustfft::{num_complex::Complex64, FftPlanner};
 
 const SEGMENT_SIZE: usize = 131072; // 2^17
-const IR_SIZE: usize = 2048; // 2^17
+const IR_SIZE: usize = 2048;
 const MIN_DURATION_SECONDS: u32 = 30;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 const MINUS_65_DB: f64 = 0.00056234132519;
@@ -119,12 +119,12 @@ fn write(filename: String, acc: &[Complex64]) {
     let spec = hound::WavSpec {
         channels: 1,
         sample_rate: 48000,
-        bits_per_sample: 32,
-        sample_format: hound::SampleFormat::Float,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
     };
     let mut writer = hound::WavWriter::create(filename, spec).unwrap();
     for i in 0..acc.len() {
-        let sample = acc[i].re() as f32;
+        let sample = (acc[i].re() * 32767.0) as i32;
         writer.write_sample(sample).unwrap();
     }
 }
