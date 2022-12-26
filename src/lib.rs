@@ -47,6 +47,9 @@ pub fn generate_from_wav() -> u8 {
         }
         if i == SEGMENT_SIZE {
             i = 0;
+            // FIXME check for clipping and too_low
+            apply_window(&mut mic);
+            apply_window(&mut pickup);
             fft.process(&mut mic);
             fft.process(&mut pickup);
             accumulate(&mic, &pickup, &mut acc);
@@ -78,6 +81,14 @@ fn normalize(count: u8, acc: &mut [Complex64]) {
     }
 }
 
+fn apply_window(s: &mut [Complex64]) {
+    let mut window = apodize::hanning_iter(SEGMENT_SIZE);
+    for i in 0..SEGMENT_SIZE {
+        let w = window.next().unwrap();
+        s[i] = Complex64::new(s[i].re() * w, 0f64);
+    }
+}
+
 fn write(acc: &[Complex64]) {
     let spec = hound::WavSpec {
         channels: 1,
@@ -98,6 +109,15 @@ mod tests {
     #[test]
     fn it_works() {
         let result = generate_from_wav();
-        assert_eq!(result, 4);
+        assert_eq!(result, 11);
+    }
+
+    #[test]
+    fn normalize_works() {
+        let mut acc = vec![Complex64::new(6.0, 2.0); SEGMENT_SIZE];
+
+        normalize(2, &mut acc);
+        assert_eq!(acc[0].re(), 3.0);
+        assert_eq!(acc[0].im(), 1.0);
     }
 }
