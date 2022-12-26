@@ -6,10 +6,11 @@ use rustfft::{num_complex::Complex64, FftPlanner};
 
 const SEGMENT_SIZE: usize = 131072; // 2^17
 const IR_SIZE: usize = 2048;
-const MIN_DURATION_SECONDS: u32 = 30;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 const MINUS_65_DB: f64 = 0.0005623413251903491;
-const Q: f64 = 1.0 / 8388608.0;
+const SCALE_24_BIT_PCM: f64 = 8388608.0;
+const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
+const MIN_DURATION_SECONDS: u32 = 30;
 
 pub fn generate_from_wav() -> u64 {
     let mut reader = WavReader::open("test/gibson.wav").expect("Failed to open WAV file");
@@ -34,7 +35,7 @@ pub fn generate_from_wav() -> u64 {
     let samples = reader
         .samples::<i32>()
         .filter_map(|s| s.ok()) // ignore the errors while reading
-        .map(|s| Complex64::new(s as f64 * Q, 0f64)); // normalize 24bit to +-1.0
+        .map(|s| Complex64::new(s as f64 / SCALE_24_BIT_PCM, 0f64)); // normalize 24bit to +-1.0
 
     let mut i = 0;
     let mut ch1 = true;
@@ -130,7 +131,7 @@ fn write(filename: String, samples: &[Complex64]) {
     };
     let mut writer = hound::WavWriter::create(filename, spec).unwrap();
     for s in samples.into_iter() {
-        let sample = (s.re() * std::i16::MAX as f64) as i32;
+        let sample = (s.re() * SCALE_16_BIT_PCM) as i32;
         writer.write_sample(sample).unwrap();
     }
 }
