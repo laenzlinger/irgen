@@ -90,7 +90,7 @@ fn normalize(acc: &mut [Complex64], dividend: f64) {
 }
 
 fn apply_window(s: &mut [Complex64]) {
-    let mut window = apodize::hanning_iter(s.len());
+    let mut window = apodize::blackman_iter(s.len());
     for i in 0..s.len() {
         let w = window.next().unwrap();
         s[i] = Complex64::new(s[i].re() * w, 0f64);
