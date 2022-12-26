@@ -5,6 +5,7 @@ use num::complex::ComplexFloat;
 use rustfft::{num_complex::Complex64, FftPlanner};
 
 const SEGMENT_SIZE: usize = 131072; // 2^17
+const IR_SIZE: usize = 2048; // 2^17
 const MIN_DURATION_SECONDS: u32 = 30;
 const SKIP_START_SECONDS: u32 = 6;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
@@ -54,7 +55,7 @@ pub fn generate_from_wav() -> u8 {
             apply_window(&mut pickup);
             fft.process(&mut mic);
             fft.process(&mut pickup);
-            detect_near_zero(&mut mic, &mut pickup);
+            apply_near_zero(&mut mic, &mut pickup);
             accumulate(&mic, &pickup, &mut acc);
             count += 1
         }
@@ -92,7 +93,7 @@ fn apply_window(s: &mut [Complex64]) {
     }
 }
 
-fn detect_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) {
+fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) {
     let mut near_zero = 0f64;
     for i in 0..SEGMENT_SIZE {
         let abs = pickup[i].abs();
@@ -118,8 +119,8 @@ fn write(acc: &[Complex64]) {
         sample_format: hound::SampleFormat::Float,
     };
     let mut writer = hound::WavWriter::create("test/out.wav", spec).unwrap();
-    for t in acc {
-        writer.write_sample(t.abs() as f32).unwrap();
+    for i in 1..IR_SIZE {
+        writer.write_sample(acc[i].abs() as f32).unwrap();
     }
 }
 
