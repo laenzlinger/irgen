@@ -99,14 +99,12 @@ fn apply_window(s: &mut [Complex64]) {
 
 fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) -> u64 {
     let mut count: u64 = 0;
-    let mut near_zero = 0f64;
-    for p in pickup.into_iter() {
-        let abs = p.abs();
-        if abs > near_zero {
-            near_zero = abs
-        }
-    }
-    near_zero = near_zero * MINUS_65_DB;
+    let near_zero = pickup
+        .into_iter()
+        .map(|c| c.abs())
+        .reduce(f64::max)
+        .unwrap()
+        * MINUS_65_DB;
 
     for i in 0..mic.len() {
         if pickup[i].abs() < near_zero {
