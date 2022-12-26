@@ -10,6 +10,7 @@ const MIN_DURATION_SECONDS: u32 = 30;
 const SKIP_START_SECONDS: u32 = 6;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 const MINUS_65_DB: f64 = 0.00056234132519;
+const Q: f64 = 2.0 / 16777215.0;
 
 pub fn generate_from_wav() -> u8 {
     let mut reader = WavReader::open("test/gibson.wav").expect("Failed to open WAV file");
@@ -39,12 +40,12 @@ pub fn generate_from_wav() -> u8 {
     let mut ch1 = true;
     let mut count: u8 = 0;
     for sample in samples {
-        let value = Complex64::new(sample.unwrap() as f64, 0f64);
+        let value = Complex64::new((sample.unwrap() as f64) * Q - 1.0, 0f64);
         if ch1 {
-            mic[i] = value;
+            pickup[i] = value;
             ch1 = false;
         } else {
-            pickup[i] = value;
+            mic[i] = value;
             ch1 = true;
             i += 1;
         }
@@ -141,5 +142,15 @@ mod tests {
         normalize(2, &mut acc);
         assert_eq!(acc[0].re(), 3.0);
         assert_eq!(acc[0].im(), 1.0);
+    }
+
+    #[test]
+    fn test_write() {
+        let mut acc = vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE];
+        for j in 0..SEGMENT_SIZE {
+            let val = std::f64::consts::PI * 2.0 * j as f64 / 44.1;
+            acc[j] = Complex64::new(0.1 * ((val.sin() + 1.0) / 2.0), 0f64);
+        }
+        write(String::from("test/sin.wav"), &acc)
     }
 }
