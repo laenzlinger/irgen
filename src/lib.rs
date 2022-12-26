@@ -99,13 +99,7 @@ fn apply_window(s: &mut [Complex64]) {
 
 fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) -> u64 {
     let mut count: u64 = 0;
-    let near_zero = pickup
-        .into_iter()
-        .map(|c| c.abs())
-        .reduce(f64::max)
-        .unwrap()
-        * MINUS_65_DB;
-
+    let near_zero = max(pickup);
     for i in 0..mic.len() {
         if pickup[i].abs() < near_zero {
             pickup[i] = ONE;
@@ -114,6 +108,15 @@ fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) -> u64 {
         }
     }
     count
+}
+
+fn max(samples: &mut [Complex64]) -> f64 {
+    samples
+        .into_iter()
+        .map(|c| c.abs())
+        .reduce(f64::max)
+        .unwrap()
+        * MINUS_65_DB
 }
 
 fn write(filename: String, samples: &[Complex64]) {
