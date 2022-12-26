@@ -31,7 +31,10 @@ pub fn generate_from_wav() -> u64 {
     let mut pickup = vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE];
     let mut acc = vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE];
 
-    let samples = reader.samples::<i32>();
+    let samples = reader
+        .samples::<i32>()
+        .filter_map(|s| s.ok()) // ignore the errors while reading
+        .map(|s| Complex64::new(s as f64 * Q, 0f64)); // normalize 24bit to +-1.0
 
     let mut i = 0;
     let mut ch1 = true;
@@ -39,12 +42,11 @@ pub fn generate_from_wav() -> u64 {
     let mut count: u8 = 0;
     let mut nzcount: u64 = 0;
     for sample in samples {
-        let value = Complex64::new(sample.unwrap() as f64 * Q, 0f64);
         if ch1 {
-            pickup[i] = value;
+            pickup[i] = sample;
             ch1 = false;
         } else {
-            mic[i] = value;
+            mic[i] = sample;
             ch1 = true;
             i += 1;
         }
