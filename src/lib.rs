@@ -119,7 +119,7 @@ fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) -> u64 {
     count
 }
 
-fn write(filename: String, acc: &[Complex64]) {
+fn write(filename: String, samples: &[Complex64]) {
     let spec = hound::WavSpec {
         channels: 1,
         sample_rate: 48000,
@@ -127,8 +127,8 @@ fn write(filename: String, acc: &[Complex64]) {
         sample_format: hound::SampleFormat::Int,
     };
     let mut writer = hound::WavWriter::create(filename, spec).unwrap();
-    for i in 0..acc.len() {
-        let sample = (acc[i].re() * std::i16::MAX as f64) as i32;
+    for s in samples.into_iter() {
+        let sample = (s.re() * std::i16::MAX as f64) as i32;
         writer.write_sample(sample).unwrap();
     }
 }
