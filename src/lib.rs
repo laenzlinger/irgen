@@ -76,7 +76,7 @@ pub fn generate_from_wav() -> u8 {
 }
 
 fn accumulate(mic: &[Complex64], pickup: &[Complex64], acc: &mut [Complex64]) {
-    for i in 0..SEGMENT_SIZE {
+    for i in 0..acc.len() {
         let d = mic[i].div(pickup[i]);
         acc[i] = acc[i].add(d);
     }
@@ -84,14 +84,14 @@ fn accumulate(mic: &[Complex64], pickup: &[Complex64], acc: &mut [Complex64]) {
 
 fn normalize(acc: &mut [Complex64], dividend: f64) {
     let c = Complex64::new(dividend, 0f64);
-    for i in 0..SEGMENT_SIZE {
+    for i in 0..acc.len() {
         acc[i] = acc[i].div(c)
     }
 }
 
 fn apply_window(s: &mut [Complex64]) {
-    let mut window = apodize::hanning_iter(SEGMENT_SIZE);
-    for i in 0..SEGMENT_SIZE {
+    let mut window = apodize::hanning_iter(s.len());
+    for i in 0..s.len() {
         let w = window.next().unwrap();
         s[i] = Complex64::new(s[i].re() * w, 0f64);
     }
@@ -99,7 +99,7 @@ fn apply_window(s: &mut [Complex64]) {
 
 fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) {
     let mut near_zero = 0f64;
-    for i in 0..SEGMENT_SIZE {
+    for i in 0..mic.len() {
         let abs = pickup[i].abs();
         if abs > near_zero {
             near_zero = abs
@@ -107,7 +107,7 @@ fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) {
     }
     near_zero = near_zero * MINUS_65_DB;
 
-    for i in 0..SEGMENT_SIZE {
+    for i in 0..mic.len() {
         if pickup[i].abs() < near_zero {
             pickup[i] = ONE;
             mic[i] = ONE;
