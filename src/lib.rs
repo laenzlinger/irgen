@@ -27,7 +27,6 @@ pub fn generate_from_wav() -> u8 {
 
     let mut planner = FftPlanner::<f64>::new();
     let fft = planner.plan_fft_forward(SEGMENT_SIZE);
-    let ifft = planner.plan_fft_inverse(SEGMENT_SIZE);
     let mut mic = vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE];
     let mut pickup = vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE];
     let mut acc = vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE];
@@ -69,6 +68,7 @@ pub fn generate_from_wav() -> u8 {
     }
 
     normalize(&mut acc, count as f64);
+    let ifft = planner.plan_fft_inverse(SEGMENT_SIZE);
     ifft.process(&mut acc);
     normalize(&mut acc, SEGMENT_SIZE as f64);
     write(String::from("test/out.wav"), &acc[0..IR_SIZE]);
