@@ -124,7 +124,8 @@ fn write(filename: String, acc: &[Complex64]) {
     };
     let mut writer = hound::WavWriter::create(filename, spec).unwrap();
     for i in 0..acc.len() {
-        writer.write_sample(acc[i].abs() as f32).unwrap();
+        let sample = acc[i].re() as f32;
+        writer.write_sample(sample).unwrap();
     }
 }
 
