@@ -7,7 +7,6 @@ use rustfft::{num_complex::Complex64, FftPlanner};
 const SEGMENT_SIZE: usize = 131072; // 2^17
 const IR_SIZE: usize = 2048; // 2^17
 const MIN_DURATION_SECONDS: u32 = 30;
-const SKIP_START_SECONDS: u32 = 6;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 const MINUS_65_DB: f64 = 0.00056234132519;
 const Q: f64 = 2.0 / 16777215.0;
@@ -25,7 +24,7 @@ pub fn generate_from_wav() -> u8 {
     if duration < MIN_DURATION_SECONDS as f32 {
         panic!("sample needs to be at least {MIN_DURATION_SECONDS}s long, but was {duration:.2}s");
     }
-    reader.seek(spec.sample_rate * SKIP_START_SECONDS).unwrap();
+    //   reader.seek(spec.sample_rate * SKIP_START_SECONDS).unwrap();
 
     let mut planner = FftPlanner::<f64>::new();
     let fft = planner.plan_fft_forward(SEGMENT_SIZE);
@@ -38,6 +37,7 @@ pub fn generate_from_wav() -> u8 {
 
     let mut i = 0;
     let mut ch1 = true;
+    let mut segment: u8 = 0;
     let mut count: u8 = 0;
     for sample in samples {
         let value = Complex64::new((sample.unwrap() as f64) * Q - 1.0, 0f64);
@@ -52,13 +52,16 @@ pub fn generate_from_wav() -> u8 {
         if i == SEGMENT_SIZE {
             i = 0;
             // FIXME check for clipping and too_low
-            apply_window(&mut mic);
-            apply_window(&mut pickup);
-            fft.process(&mut mic);
-            fft.process(&mut pickup);
-            apply_near_zero(&mut mic, &mut pickup);
-            accumulate(&mic, &pickup, &mut acc);
-            count += 1
+            if segment > 1 && count < 4 {
+                apply_window(&mut mic);
+                apply_window(&mut pickup);
+                fft.process(&mut mic);
+                fft.process(&mut pickup);
+                apply_near_zero(&mut mic, &mut pickup);
+                accumulate(&mic, &pickup, &mut acc);
+                count += 1;
+            }
+            segment += 1;
         }
     }
 
@@ -75,7 +78,7 @@ pub fn generate_from_wav() -> u8 {
 fn accumulate(mic: &[Complex64], pickup: &[Complex64], acc: &mut [Complex64]) {
     for i in 0..SEGMENT_SIZE {
         let d = mic[i].div(pickup[i]);
-        acc[i] = d.add(acc[i]);
+        acc[i] = acc[i].add(d);
     }
 }
 
@@ -132,7 +135,7 @@ mod tests {
     #[test]
     fn it_works() {
         let result = generate_from_wav();
-        assert_eq!(result, 11);
+        assert_eq!(result, 4);
     }
 
     #[test]
