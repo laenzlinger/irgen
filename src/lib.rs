@@ -8,10 +8,10 @@ const SEGMENT_SIZE: usize = 131072; // 2^17
 const IR_SIZE: usize = 2048;
 const MIN_DURATION_SECONDS: u32 = 30;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
-const MINUS_65_DB: f64 = 0.00056234132519;
+const MINUS_65_DB: f64 = 0.0005623413251903491;
 const Q: f64 = 1.0 / 8388608.0;
 
-pub fn generate_from_wav() -> u8 {
+pub fn generate_from_wav() -> u64 {
     let mut reader = WavReader::open("test/gibson.wav").expect("Failed to open WAV file");
     let spec = reader.spec();
     if spec.channels != 2 {
@@ -37,6 +37,7 @@ pub fn generate_from_wav() -> u8 {
     let mut ch1 = true;
     let mut segment: u8 = 0;
     let mut count: u8 = 0;
+    let mut nzcount: u64 = 0;
     for sample in samples {
         let value = Complex64::new(sample.unwrap() as f64 * Q, 0f64);
         if ch1 {
@@ -54,7 +55,7 @@ pub fn generate_from_wav() -> u8 {
                 apply_window(&mut pickup);
                 fft.process(&mut mic);
                 fft.process(&mut pickup);
-                apply_near_zero(&mut mic, &mut pickup);
+                nzcount += apply_near_zero(&mut mic, &mut pickup);
                 accumulate(&mic, &pickup, &mut acc);
                 count += 1;
             }
@@ -72,7 +73,7 @@ pub fn generate_from_wav() -> u8 {
     ifft.process(&mut acc);
     normalize(&mut acc, SEGMENT_SIZE as f64);
     write(String::from("test/out.wav"), &acc[0..IR_SIZE]);
-    count
+    nzcount / (count as u64 * 2)
 }
 
 fn accumulate(mic: &[Complex64], pickup: &[Complex64], acc: &mut [Complex64]) {
@@ -97,8 +98,8 @@ fn apply_window(s: &mut [Complex64]) {
     }
 }
 
-fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) -> u32 {
-    let mut count: u32 = 0;
+fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) -> u64 {
+    let mut count: u64 = 0;
     let mut near_zero = 0f64;
     for i in 0..mic.len() {
         let abs = pickup[i].abs();
@@ -139,7 +140,7 @@ mod tests {
     #[test]
     fn it_works() {
         let result = generate_from_wav();
-        assert_eq!(result, 4);
+        assert_eq!(result, 16560);
     }
 
     #[test]
