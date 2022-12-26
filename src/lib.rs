@@ -24,7 +24,6 @@ pub fn generate_from_wav() -> u8 {
     if duration < MIN_DURATION_SECONDS as f32 {
         panic!("sample needs to be at least {MIN_DURATION_SECONDS}s long, but was {duration:.2}s");
     }
-    //   reader.seek(spec.sample_rate * SKIP_START_SECONDS).unwrap();
 
     let mut planner = FftPlanner::<f64>::new();
     let fft = planner.plan_fft_forward(SEGMENT_SIZE);
@@ -72,7 +71,7 @@ pub fn generate_from_wav() -> u8 {
     normalize(&mut acc, count as f64);
     ifft.process(&mut acc);
     normalize(&mut acc, SEGMENT_SIZE as f64);
-    write(String::from("test/out.wav"), &acc);
+    write(String::from("test/out.wav"), &acc[0..IR_SIZE]);
     count
 }
 
@@ -124,7 +123,7 @@ fn write(filename: String, acc: &[Complex64]) {
         sample_format: hound::SampleFormat::Float,
     };
     let mut writer = hound::WavWriter::create(filename, spec).unwrap();
-    for i in 0..IR_SIZE {
+    for i in 0..acc.len() {
         writer.write_sample(acc[i].abs() as f32).unwrap();
     }
 }
