@@ -9,7 +9,7 @@ const IR_SIZE: usize = 2048; // 2^17
 const MIN_DURATION_SECONDS: u32 = 30;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 const MINUS_65_DB: f64 = 0.00056234132519;
-const Q: f64 = 2.0 / 16777215.0;
+const Q: f64 = 1.0 / 8388608.0;
 
 pub fn generate_from_wav() -> u8 {
     let mut reader = WavReader::open("test/gibson.wav").expect("Failed to open WAV file");
@@ -40,7 +40,7 @@ pub fn generate_from_wav() -> u8 {
     let mut segment: u8 = 0;
     let mut count: u8 = 0;
     for sample in samples {
-        let value = Complex64::new((sample.unwrap() as f64) * Q - 1.0, 0f64);
+        let value = Complex64::new(sample.unwrap() as f64 * Q, 0f64);
         if ch1 {
             pickup[i] = value;
             ch1 = false;
@@ -50,7 +50,6 @@ pub fn generate_from_wav() -> u8 {
             i += 1;
         }
         if i == SEGMENT_SIZE {
-            i = 0;
             // FIXME check for clipping and too_low
             if segment > 1 && count < 4 {
                 apply_window(&mut mic);
@@ -61,6 +60,7 @@ pub fn generate_from_wav() -> u8 {
                 accumulate(&mic, &pickup, &mut acc);
                 count += 1;
             }
+            i = 0;
             segment += 1;
         }
     }
@@ -123,8 +123,9 @@ fn write(filename: String, acc: &[Complex64]) {
         sample_format: hound::SampleFormat::Float,
     };
     let mut writer = hound::WavWriter::create(filename, spec).unwrap();
-    for i in 1..IR_SIZE {
-        writer.write_sample(acc[i].abs() as f32).unwrap();
+    let scale = 1.0 / SEGMENT_SIZE as f64;
+    for i in 0..IR_SIZE {
+        writer.write_sample((acc[i].abs() * scale) as f32).unwrap();
     }
 }
 
