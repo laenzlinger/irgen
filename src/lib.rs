@@ -97,7 +97,8 @@ fn apply_window(s: &mut [Complex64]) {
     }
 }
 
-fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) {
+fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) -> u32 {
+    let mut count: u32 = 0;
     let mut near_zero = 0f64;
     for i in 0..mic.len() {
         let abs = pickup[i].abs();
@@ -111,8 +112,10 @@ fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) {
         if pickup[i].abs() < near_zero {
             pickup[i] = ONE;
             mic[i] = ONE;
+            count += 1;
         }
     }
+    count
 }
 
 fn write(filename: String, acc: &[Complex64]) {
@@ -124,7 +127,7 @@ fn write(filename: String, acc: &[Complex64]) {
     };
     let mut writer = hound::WavWriter::create(filename, spec).unwrap();
     for i in 0..acc.len() {
-        let sample = (acc[i].re() * 32767.0) as i32;
+        let sample = (acc[i].re() * std::i16::MAX as f64) as i32;
         writer.write_sample(sample).unwrap();
     }
 }
