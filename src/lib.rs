@@ -67,7 +67,7 @@ pub fn generate_from_wav() -> u8 {
 
     normalize(count, &mut acc);
     ifft.process(&mut acc);
-    write(&acc);
+    write(String::from("test/out.wav"), &acc);
     count
 }
 
@@ -111,14 +111,14 @@ fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) {
     }
 }
 
-fn write(acc: &[Complex64]) {
+fn write(filename: String, acc: &[Complex64]) {
     let spec = hound::WavSpec {
         channels: 1,
         sample_rate: 48000,
         bits_per_sample: 32,
         sample_format: hound::SampleFormat::Float,
     };
-    let mut writer = hound::WavWriter::create("test/out.wav", spec).unwrap();
+    let mut writer = hound::WavWriter::create(filename, spec).unwrap();
     for i in 1..IR_SIZE {
         writer.write_sample(acc[i].abs() as f32).unwrap();
     }
