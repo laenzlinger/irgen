@@ -7,6 +7,8 @@ use rustfft::{num_complex::Complex64, FftPlanner};
 const SEGMENT_SIZE: usize = 131072; // 2^17
 const MIN_DURATION_SECONDS: u32 = 30;
 const SKIP_START_SECONDS: u32 = 6;
+const ONE: Complex64 = Complex64::new(1.0, 0f64);
+const MINUS_65_DB: f64 = 0.00056234132519;
 
 pub fn generate_from_wav() -> u8 {
     let mut reader = WavReader::open("test/gibson.wav").expect("Failed to open WAV file");
@@ -52,6 +54,7 @@ pub fn generate_from_wav() -> u8 {
             apply_window(&mut pickup);
             fft.process(&mut mic);
             fft.process(&mut pickup);
+            detect_near_zero(&mut mic, &mut pickup);
             accumulate(&mic, &pickup, &mut acc);
             count += 1
         }
@@ -86,6 +89,24 @@ fn apply_window(s: &mut [Complex64]) {
     for i in 0..SEGMENT_SIZE {
         let w = window.next().unwrap();
         s[i] = Complex64::new(s[i].re() * w, 0f64);
+    }
+}
+
+fn detect_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) {
+    let mut near_zero = 0f64;
+    for i in 0..SEGMENT_SIZE {
+        let abs = pickup[i].abs();
+        if abs > near_zero {
+            near_zero = abs
+        }
+    }
+    near_zero = near_zero * MINUS_65_DB;
+
+    for i in 0..SEGMENT_SIZE {
+        if pickup[i].abs() < near_zero {
+            pickup[i] = ONE;
+            mic[i] = ONE;
+        }
     }
 }
 
