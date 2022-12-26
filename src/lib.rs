@@ -69,8 +69,9 @@ pub fn generate_from_wav() -> u8 {
         panic!("No segments were processed");
     }
 
-    normalize(count, &mut acc);
+    normalize(&mut acc, count as f64);
     ifft.process(&mut acc);
+    normalize(&mut acc, SEGMENT_SIZE as f64);
     write(String::from("test/out.wav"), &acc);
     count
 }
@@ -82,8 +83,8 @@ fn accumulate(mic: &[Complex64], pickup: &[Complex64], acc: &mut [Complex64]) {
     }
 }
 
-fn normalize(count: u8, acc: &mut [Complex64]) {
-    let c = Complex64::new(count as f64, 0f64);
+fn normalize(acc: &mut [Complex64], dividend: f64) {
+    let c = Complex64::new(dividend, 0f64);
     for i in 0..SEGMENT_SIZE {
         acc[i] = acc[i].div(c)
     }
@@ -123,9 +124,8 @@ fn write(filename: String, acc: &[Complex64]) {
         sample_format: hound::SampleFormat::Float,
     };
     let mut writer = hound::WavWriter::create(filename, spec).unwrap();
-    let scale = 1.0 / SEGMENT_SIZE as f64;
     for i in 0..IR_SIZE {
-        writer.write_sample((acc[i].abs() * scale) as f32).unwrap();
+        writer.write_sample(acc[i].abs() as f32).unwrap();
     }
 }
 
@@ -143,7 +143,7 @@ mod tests {
     fn normalize_works() {
         let mut acc = vec![Complex64::new(6.0, 2.0); SEGMENT_SIZE];
 
-        normalize(2, &mut acc);
+        normalize(&mut acc, 2.0);
         assert_eq!(acc[0].re(), 3.0);
         assert_eq!(acc[0].im(), 1.0);
     }
