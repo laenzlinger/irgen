@@ -22,6 +22,11 @@ struct Segment {
     fft: Arc<dyn Fft<f64>>,
 }
 
+struct Accumulator {
+    result: Vec<Complex64>,
+    ifft: Arc<dyn Fft<f64>>,
+}
+
 pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     let mut reader = WavReader::open(input_file).expect("Failed to open WAV file");
     let spec = reader.spec();
@@ -38,11 +43,16 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     let mut planner = FftPlanner::<f64>::new();
     let fft = planner.plan_fft_forward(SEGMENT_SIZE);
 
-    let mut acc = vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE];
     let mut segment = Segment {
         mic: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
         pickup: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
         fft,
+    };
+
+    let ifft = planner.plan_fft_inverse(SEGMENT_SIZE);
+    let mut acc = Accumulator {
+        result: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
+        ifft,
     };
 
     let samples = reader
@@ -79,33 +89,32 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
         panic!("No segments were processed");
     }
 
-    let ifft = planner.plan_fft_inverse(SEGMENT_SIZE);
-    ifft.process(&mut acc);
+    acc.ifft.process(&mut acc.result);
     normalize(&mut acc, (count as usize * SEGMENT_SIZE) as f64);
-    write(output_file, &acc[0..IR_SIZE]);
+    write(output_file, &acc.result[0..IR_SIZE]);
     nzcount / (count as u64 * 2)
 }
 
-fn process(s: &mut Segment, acc: &mut [Complex64]) -> u64 {
+fn process(s: &mut Segment, acc: &mut Accumulator) -> u64 {
     apply_window(s);
     s.fft.process(&mut s.mic);
     s.fft.process(&mut s.pickup);
     let nzount = apply_near_zero(s);
-    accumulate(&s, acc);
+    accumulate(acc, &s);
     nzount
 }
 
-fn accumulate(s: &Segment, acc: &mut [Complex64]) {
-    for i in 0..acc.len() {
+fn accumulate(acc: &mut Accumulator, s: &Segment) {
+    for i in 0..acc.result.len() {
         let d = s.mic[i].div(s.pickup[i]);
-        acc[i] = acc[i].add(d);
+        acc.result[i] = acc.result[i].add(d);
     }
 }
 
-fn normalize(acc: &mut [Complex64], dividend: f64) {
+fn normalize(acc: &mut Accumulator, dividend: f64) {
     let c = Complex64::new(dividend, 0f64);
-    for i in 0..acc.len() {
-        acc[i] = acc[i].div(c)
+    for i in 0..acc.result.len() {
+        acc.result[i] = acc.result[i].div(c)
     }
 }
 
@@ -165,15 +174,6 @@ mod tests {
             String::from("test/out.wav"),
         );
         assert_eq!(result, 16560);
-    }
-
-    #[test]
-    fn normalize_works() {
-        let mut acc = vec![Complex64::new(6.0, 2.0); SEGMENT_SIZE];
-
-        normalize(&mut acc, 2.0);
-        assert_eq!(acc[0].re(), 3.0);
-        assert_eq!(acc[0].im(), 1.0);
     }
 
     #[test]
