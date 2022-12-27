@@ -16,6 +16,7 @@ const SCALE_24_BIT_PCM: f64 = 8388608.0;
 const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
 const MIN_DURATION_SECONDS: u32 = 30;
 
+// FIXME introduce methods
 struct Segment {
     count: u8,
     mic: Vec<Complex64>,
@@ -78,10 +79,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
             i += 1;
         }
         if i == SEGMENT_SIZE {
-            // FIXME check for clipping and too_low
-            if segment.count > 1 && acc.count < 4 {
-                process(&mut segment, &mut acc);
-            }
+            process(&mut segment, &mut acc);
             i = 0;
             segment.count += 1;
         }
@@ -97,12 +95,17 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     acc.near_zero_count / (acc.count as u64 * 2)
 }
 
-fn process(s: &mut Segment, acc: &mut Accumulator) {
+fn process(s: &mut Segment, acc: &mut Accumulator) -> bool {
+    if s.count < 2 || acc.count > 3 {
+        return true;
+    }
+    // FIXME check for clipping and too_low
     apply_window(s);
     s.fft.process(&mut s.mic);
     s.fft.process(&mut s.pickup);
     let near_zero_count = apply_near_zero(s);
     accumulate(acc, &s, near_zero_count);
+    return false;
 }
 
 fn apply_window(s: &mut Segment) {
