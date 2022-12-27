@@ -101,14 +101,16 @@ impl Segment {
 
     fn process(&mut self, accu: &mut Accumulator) -> bool {
         self.count += 1;
-        if self.count < 3 {
-            return false;
-        }
         if accu.done() {
             return true;
         }
+        if self.count < 3 {
+            return false;
+        }
+        if !self.is_valid() {
+            return false;
+        }
 
-        // FIXME check for clipping and too_low
         self.apply_window();
         self.fft.process(&mut self.mic);
         self.fft.process(&mut self.pickup);
@@ -117,6 +119,10 @@ impl Segment {
         accu.done()
     }
 
+    fn is_valid(&mut self) -> bool {
+        // FIXME check for clipping and too_low
+        true
+    }
     fn apply_window(&mut self) {
         let mut window = apodize::blackman_iter(self.mic.len());
         for i in 0..self.mic.len() {
