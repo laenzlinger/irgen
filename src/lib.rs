@@ -35,6 +35,12 @@ pub struct Generator {
     frame_count: usize,
 }
 
+impl Default for Generator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Generator {
     pub fn new() -> Generator {
         let mut planner = FftPlanner::<f64>::new();
@@ -203,12 +209,7 @@ impl Accumulator {
 }
 
 fn max(samples: &[Complex64]) -> f64 {
-    samples
-        .iter()
-        .map(|c| c.abs())
-        .reduce(f64::max)
-        .unwrap()
-        * MINUS_65_DB
+    samples.iter().map(|c| c.abs()).reduce(f64::max).unwrap() * MINUS_65_DB
 }
 
 const MIN_DURATION_SECONDS: u32 = 30;
