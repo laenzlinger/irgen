@@ -1,9 +1,13 @@
+use hound::WavReader;
 use std::ops::{Add, Div};
 use std::sync::Arc;
 
-use hound::WavReader;
 use num::complex::ComplexFloat;
 use rustfft::{num_complex::Complex64, Fft, FftPlanner};
+
+// wav file handling
+pub const SCALE_24_BIT_PCM: f64 = 8388608.0;
+pub const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
 
 // Algorithm
 const SEGMENT_SIZE: usize = 131072; // 2^17
@@ -11,50 +15,13 @@ const IR_SIZE: usize = 2048;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 const MINUS_65_DB: f64 = 0.0005623413251903491;
 
-// wav file handling
-const SCALE_24_BIT_PCM: f64 = 8388608.0;
-const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
-const MIN_DURATION_SECONDS: u32 = 30;
-
-pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
-    let mut reader = WavReader::open(input_file).expect("Failed to open WAV file");
-    let spec = reader.spec();
-    if spec.channels != 2 {
-        panic!("only stereo wav files are supported");
-    }
-    if spec.sample_format == hound::SampleFormat::Float {
-        panic!("float format is not supported");
-    }
-    let duration: f32 = reader.duration() as f32 / spec.sample_rate as f32;
-    if duration < MIN_DURATION_SECONDS as f32 {
-        panic!("sample needs to be at least {MIN_DURATION_SECONDS}s long, but was {duration:.2}s");
-    }
-    let mut samples = reader
-        .samples::<i32>()
-        .filter_map(|s| s.ok()) // ignore the errors while reading
-        .map(|s| s as f64 / SCALE_24_BIT_PCM); // normalize 24bit to +-1.0
-
-    let mut generator = Generator::new();
-    let mut done = false;
-    while !done {
-        done = samples
-            .next()
-            .zip(samples.next())
-            .map(Frame::new)
-            .map_or(true, |frame| generator.process(frame));
-    }
-
-    generator.write(output_file);
-    generator.avg_near_zero_count()
-}
-
-struct Frame {
+pub struct Frame {
     pickup: f64,
     mic: f64,
 }
 
 impl Frame {
-    fn new(frame: (f64, f64)) -> Frame {
+    pub fn new(frame: (f64, f64)) -> Frame {
         Frame {
             pickup: frame.0,
             mic: frame.1,
@@ -62,7 +29,7 @@ impl Frame {
     }
 }
 
-struct Generator {
+pub struct Generator {
     segment: Segment,
     accu: Accumulator,
     frame_count: usize,
@@ -244,16 +211,47 @@ fn max(samples: &[Complex64]) -> f64 {
         * MINUS_65_DB
 }
 
+const MIN_DURATION_SECONDS: u32 = 30;
+
+pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
+    let mut reader = WavReader::open(input_file).expect("Failed to open WAV file");
+    let spec = reader.spec();
+    if spec.channels != 2 {
+        panic!("only stereo wav files are supported");
+    }
+    if spec.sample_format == hound::SampleFormat::Float {
+        panic!("float format is not supported");
+    }
+    let duration: f32 = reader.duration() as f32 / spec.sample_rate as f32;
+    if duration < MIN_DURATION_SECONDS as f32 {
+        panic!("sample needs to be at least {MIN_DURATION_SECONDS}s long, but was {duration:.2}s");
+    }
+
+    let mut samples = reader
+        .samples::<i32>()
+        .filter_map(|s| s.ok()) // ignore the errors while reading
+        .map(|s| s as f64 / SCALE_24_BIT_PCM); // normalize 24bit to +-1.0
+
+    let mut generator = Generator::new();
+    let mut done = false;
+    while !done {
+        done = samples
+            .next()
+            .zip(samples.next())
+            .map(Frame::new)
+            .map_or(true, |frame| generator.process(frame));
+    }
+
+    generator.write(output_file);
+    generator.avg_near_zero_count()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
-        let result = generate_from_wav(
-            String::from("test/gibson.wav"),
-            String::from("test/out.wav"),
-        );
-        assert_eq!(result, 16560);
+    fn can_create() {
+        Generator::new();
     }
 }

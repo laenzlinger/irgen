@@ -10,3 +10,4 @@ num = "0.4.0"
 rustfft = "6.1.0"
 hound = "3.5.0"
 apodize = "1.0.0"
+clap = { version = "4.0.32", features = ["derive"] }
