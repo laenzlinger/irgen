@@ -31,16 +31,10 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     }
     let mut planner = FftPlanner::<f64>::new();
     let fft = planner.plan_fft_forward(SEGMENT_SIZE);
-
     let mut segment = Segment::new(fft);
 
     let ifft = planner.plan_fft_inverse(SEGMENT_SIZE);
-    let mut acc = Accumulator {
-        count: 0,
-        near_zero_count: 0,
-        result: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
-        ifft,
-    };
+    let mut acc = Accumulator::new(ifft);
 
     let samples = reader
         .samples::<i32>()
@@ -137,6 +131,14 @@ struct Accumulator {
 }
 
 impl Accumulator {
+    fn new(ifft: Arc<dyn Fft<f64>>) -> Accumulator {
+        Accumulator {
+            count: 0,
+            near_zero_count: 0,
+            result: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
+            ifft,
+        }
+    }
     fn accumulate(&mut self, s: &Segment, near_zero_count: u64) {
         for i in 0..self.result.len() {
             let d = s.mic[i].div(s.pickup[i]);
