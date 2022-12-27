@@ -1,8 +1,9 @@
 use std::ops::{Add, Div};
+use std::sync::Arc;
 
 use hound::WavReader;
 use num::complex::ComplexFloat;
-use rustfft::{num_complex::Complex64, FftPlanner};
+use rustfft::{num_complex::Complex64, Fft, FftPlanner};
 
 // Algorithm
 const SEGMENT_SIZE: usize = 131072; // 2^17
@@ -18,6 +19,7 @@ const MIN_DURATION_SECONDS: u32 = 30;
 struct Segment {
     mic: Vec<Complex64>,
     pickup: Vec<Complex64>,
+    fft: Arc<dyn Fft<f64>>,
 }
 
 pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
@@ -33,13 +35,14 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     if duration < MIN_DURATION_SECONDS as f32 {
         panic!("sample needs to be at least {MIN_DURATION_SECONDS}s long, but was {duration:.2}s");
     }
-
     let mut planner = FftPlanner::<f64>::new();
     let fft = planner.plan_fft_forward(SEGMENT_SIZE);
+
     let mut acc = vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE];
     let mut segment = Segment {
         mic: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
         pickup: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
+        fft,
     };
 
     let samples = reader
@@ -64,12 +67,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
         if i == SEGMENT_SIZE {
             // FIXME check for clipping and too_low
             if segment_nr > 1 && count < 4 {
-                apply_window(&mut segment.mic);
-                apply_window(&mut segment.pickup);
-                fft.process(&mut segment.mic);
-                fft.process(&mut segment.pickup);
-                nzcount += apply_near_zero(&mut segment);
-                accumulate(&segment, &mut acc);
+                nzcount += process(&mut segment, &mut acc);
                 count += 1;
             }
             i = 0;
@@ -86,6 +84,16 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     normalize(&mut acc, (count as usize * SEGMENT_SIZE) as f64);
     write(output_file, &acc[0..IR_SIZE]);
     nzcount / (count as u64 * 2)
+}
+
+fn process(s: &mut Segment, acc: &mut [Complex64]) -> u64 {
+    apply_window(&mut s.mic);
+    apply_window(&mut s.pickup);
+    s.fft.process(&mut s.mic);
+    s.fft.process(&mut s.pickup);
+    let nzount = apply_near_zero(s);
+    accumulate(&s, acc);
+    nzount
 }
 
 fn accumulate(s: &Segment, acc: &mut [Complex64]) {
@@ -110,13 +118,13 @@ fn apply_window(s: &mut [Complex64]) {
     }
 }
 
-fn apply_near_zero(segment: &mut Segment) -> u64 {
+fn apply_near_zero(s: &mut Segment) -> u64 {
     let mut count: u64 = 0;
-    let near_zero = max(&segment.pickup);
-    for i in 0..segment.mic.len() {
-        if segment.pickup[i].abs() < near_zero {
-            segment.pickup[i] = ONE;
-            segment.mic[i] = ONE;
+    let near_zero = max(&s.pickup);
+    for i in 0..s.mic.len() {
+        if s.pickup[i].abs() < near_zero {
+            s.pickup[i] = ONE;
+            s.mic[i] = ONE;
             count += 1;
         }
     }
