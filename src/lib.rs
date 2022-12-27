@@ -120,8 +120,10 @@ impl Segment {
     }
 
     fn is_valid(&mut self) -> bool {
-        // FIXME check for clipping and too_low
-        true
+        let max = max(&self.mic).max(max(&self.pickup));
+        let clip = max > 0.999;
+        let too_low = max < 0.178;
+        return !(clip || too_low);
     }
     fn apply_window(&mut self) {
         let mut window = apodize::blackman_iter(self.mic.len());
@@ -134,7 +136,7 @@ impl Segment {
 
     fn apply_near_zero(&mut self) -> u64 {
         let mut count: u64 = 0;
-        let near_zero = max(&self.pickup);
+        let near_zero = max(&self.pickup) * MINUS_65_DB;
         for i in 0..self.mic.len() {
             if self.pickup[i].abs() < near_zero {
                 self.pickup[i] = ONE;
@@ -215,7 +217,7 @@ impl Accumulator {
 }
 
 fn max(samples: &[Complex64]) -> f64 {
-    samples.iter().map(|c| c.abs()).reduce(f64::max).unwrap() * MINUS_65_DB
+    samples.iter().map(|c| c.abs()).reduce(f64::max).unwrap()
 }
 
 const MIN_DURATION_SECONDS: u32 = 30;
