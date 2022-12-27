@@ -112,7 +112,7 @@ fn apply_window(s: &mut [Complex64]) {
 
 fn apply_near_zero(segment: &mut Segment) -> u64 {
     let mut count: u64 = 0;
-    let near_zero = max(&mut segment.pickup);
+    let near_zero = max(&segment.pickup);
     for i in 0..segment.mic.len() {
         if segment.pickup[i].abs() < near_zero {
             segment.pickup[i] = ONE;
@@ -123,7 +123,7 @@ fn apply_near_zero(segment: &mut Segment) -> u64 {
     count
 }
 
-fn max(samples: &mut [Complex64]) -> f64 {
+fn max(samples: &[Complex64]) -> f64 {
     samples
         .into_iter()
         .map(|c| c.abs())
