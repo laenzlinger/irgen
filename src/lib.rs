@@ -59,10 +59,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
         }
     }
 
-    acc.process();
-
-    write(output_file, &acc.result[0..IR_SIZE]);
-    acc.near_zero_count / (acc.count as u64 * 2)
+    acc.process(output_file)
 }
 
 struct Segment {
@@ -135,7 +132,7 @@ impl Accumulator {
         }
     }
 
-    pub fn process(&mut self) {
+    pub fn process(&mut self, filename: String) -> u64 {
         // validate the number of segments accumulated
         if self.count == 0 {
             panic!("No segments were processed");
@@ -143,6 +140,8 @@ impl Accumulator {
 
         self.ifft.process(&mut self.result);
         self.normalize();
+        self.write(filename);
+        self.near_zero_count / (self.count as u64 * 2)
     }
 
     fn accumulate(&mut self, s: &Segment, near_zero_count: u64) {
@@ -161,6 +160,20 @@ impl Accumulator {
             self.result[i] = self.result[i].div(c)
         }
     }
+
+    fn write(&self, filename: String) {
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 48000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::create(filename, spec).unwrap();
+        for s in self.result[0..IR_SIZE].into_iter() {
+            let sample = (s.re() * SCALE_16_BIT_PCM) as i32;
+            writer.write_sample(sample).unwrap();
+        }
+    }
 }
 
 fn max(samples: &[Complex64]) -> f64 {
@@ -170,20 +183,6 @@ fn max(samples: &[Complex64]) -> f64 {
         .reduce(f64::max)
         .unwrap()
         * MINUS_65_DB
-}
-
-fn write(filename: String, samples: &[Complex64]) {
-    let spec = hound::WavSpec {
-        channels: 1,
-        sample_rate: 48000,
-        bits_per_sample: 16,
-        sample_format: hound::SampleFormat::Int,
-    };
-    let mut writer = hound::WavWriter::create(filename, spec).unwrap();
-    for s in samples.into_iter() {
-        let sample = (s.re() * SCALE_16_BIT_PCM) as i32;
-        writer.write_sample(sample).unwrap();
-    }
 }
 
 #[cfg(test)]
@@ -197,15 +196,5 @@ mod tests {
             String::from("test/out.wav"),
         );
         assert_eq!(result, 16560);
-    }
-
-    #[test]
-    fn test_write() {
-        let mut acc = vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE];
-        for j in 0..SEGMENT_SIZE {
-            let val = std::f64::consts::PI * 2.0 * j as f64 / 44.1;
-            acc[j] = Complex64::new(0.1 * ((val.sin() + 1.0) / 2.0), 0f64);
-        }
-        write(String::from("test/sin.wav"), &acc)
     }
 }
