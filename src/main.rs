@@ -3,7 +3,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Stereo .waf file (right: pickup, left: mic)
+    /// Stereo .waf file (left: pickup, right: mic)
     #[arg(short, long)]
     input_file: String,
 
