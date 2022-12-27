@@ -87,8 +87,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
 }
 
 fn process(s: &mut Segment, acc: &mut [Complex64]) -> u64 {
-    apply_window(&mut s.mic);
-    apply_window(&mut s.pickup);
+    apply_window(s);
     s.fft.process(&mut s.mic);
     s.fft.process(&mut s.pickup);
     let nzount = apply_near_zero(s);
@@ -110,11 +109,12 @@ fn normalize(acc: &mut [Complex64], dividend: f64) {
     }
 }
 
-fn apply_window(s: &mut [Complex64]) {
-    let mut window = apodize::blackman_iter(s.len());
-    for i in 0..s.len() {
+fn apply_window(s: &mut Segment) {
+    let mut window = apodize::blackman_iter(s.mic.len());
+    for i in 0..s.mic.len() {
         let w = window.next().unwrap();
-        s[i] = Complex64::new(s[i].re() * w, 0f64);
+        s.mic[i] = Complex64::new(s.mic[i].re() * w, 0f64);
+        s.pickup[i] = Complex64::new(s.pickup[i].re() * w, 0f64);
     }
 }
 
