@@ -4,16 +4,19 @@ use hound::WavReader;
 use num::complex::ComplexFloat;
 use rustfft::{num_complex::Complex64, FftPlanner};
 
+// Algorithm
 const SEGMENT_SIZE: usize = 131072; // 2^17
 const IR_SIZE: usize = 2048;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 const MINUS_65_DB: f64 = 0.0005623413251903491;
+
+// wav file handling
 const SCALE_24_BIT_PCM: f64 = 8388608.0;
 const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
 const MIN_DURATION_SECONDS: u32 = 30;
 
-pub fn generate_from_wav() -> u64 {
-    let mut reader = WavReader::open("test/gibson.wav").expect("Failed to open WAV file");
+pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
+    let mut reader = WavReader::open(input_file).expect("Failed to open WAV file");
     let spec = reader.spec();
     if spec.channels != 2 {
         panic!("only stereo wav files are supported");
@@ -74,7 +77,7 @@ pub fn generate_from_wav() -> u64 {
     let ifft = planner.plan_fft_inverse(SEGMENT_SIZE);
     ifft.process(&mut acc);
     normalize(&mut acc, (count as usize * SEGMENT_SIZE) as f64);
-    write(String::from("test/out.wav"), &acc[0..IR_SIZE]);
+    write(output_file, &acc[0..IR_SIZE]);
     nzcount / (count as u64 * 2)
 }
 
@@ -142,7 +145,10 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let result = generate_from_wav();
+        let result = generate_from_wav(
+            String::from("test/gibson.wav"),
+            String::from("test/out.wav"),
+        );
         assert_eq!(result, 16560);
     }
 
