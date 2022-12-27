@@ -15,6 +15,11 @@ const SCALE_24_BIT_PCM: f64 = 8388608.0;
 const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
 const MIN_DURATION_SECONDS: u32 = 30;
 
+struct Segement {
+    mic: Vec<Complex64>,
+    pickup: Vec<Complex64>,
+}
+
 pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     let mut reader = WavReader::open(input_file).expect("Failed to open WAV file");
     let spec = reader.spec();
@@ -31,9 +36,11 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
 
     let mut planner = FftPlanner::<f64>::new();
     let fft = planner.plan_fft_forward(SEGMENT_SIZE);
-    let mut mic = vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE];
-    let mut pickup = vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE];
     let mut acc = vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE];
+    let mut segment = Segement {
+        mic: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
+        pickup: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
+    };
 
     let samples = reader
         .samples::<i32>()
@@ -42,31 +49,31 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
 
     let mut i = 0;
     let mut ch1 = true;
-    let mut segment: u8 = 0;
+    let mut segment_nr: u8 = 0;
     let mut count: u8 = 0;
     let mut nzcount: u64 = 0;
     for sample in samples {
         if ch1 {
-            pickup[i] = sample;
+            segment.pickup[i] = sample;
             ch1 = false;
         } else {
-            mic[i] = sample;
+            segment.mic[i] = sample;
             ch1 = true;
             i += 1;
         }
         if i == SEGMENT_SIZE {
             // FIXME check for clipping and too_low
-            if segment > 1 && count < 4 {
-                apply_window(&mut mic);
-                apply_window(&mut pickup);
-                fft.process(&mut mic);
-                fft.process(&mut pickup);
-                nzcount += apply_near_zero(&mut mic, &mut pickup);
-                accumulate(&mic, &pickup, &mut acc);
+            if segment_nr > 1 && count < 4 {
+                apply_window(&mut segment.mic);
+                apply_window(&mut segment.pickup);
+                fft.process(&mut segment.mic);
+                fft.process(&mut segment.pickup);
+                nzcount += apply_near_zero(&mut segment.mic, &mut segment.pickup);
+                accumulate(&segment.mic, &segment.pickup, &mut acc);
                 count += 1;
             }
             i = 0;
-            segment += 1;
+            segment_nr += 1;
         }
     }
 
