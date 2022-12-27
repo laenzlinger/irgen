@@ -17,12 +17,14 @@ const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
 const MIN_DURATION_SECONDS: u32 = 30;
 
 struct Segment {
+    count: u8,
     mic: Vec<Complex64>,
     pickup: Vec<Complex64>,
     fft: Arc<dyn Fft<f64>>,
 }
 
 struct Accumulator {
+    count: u8,
     result: Vec<Complex64>,
     ifft: Arc<dyn Fft<f64>>,
 }
@@ -44,6 +46,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     let fft = planner.plan_fft_forward(SEGMENT_SIZE);
 
     let mut segment = Segment {
+        count: 0,
         mic: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
         pickup: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
         fft,
@@ -51,6 +54,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
 
     let ifft = planner.plan_fft_inverse(SEGMENT_SIZE);
     let mut acc = Accumulator {
+        count: 0,
         result: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
         ifft,
     };
@@ -62,8 +66,6 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
 
     let mut i = 0;
     let mut ch1 = true;
-    let mut segment_nr: u8 = 0;
-    let mut count: u8 = 0;
     let mut nzcount: u64 = 0;
     for sample in samples {
         if ch1 {
@@ -76,23 +78,22 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
         }
         if i == SEGMENT_SIZE {
             // FIXME check for clipping and too_low
-            if segment_nr > 1 && count < 4 {
+            if segment.count > 1 && acc.count < 4 {
                 nzcount += process(&mut segment, &mut acc);
-                count += 1;
             }
             i = 0;
-            segment_nr += 1;
+            segment.count += 1;
         }
     }
 
-    if count == 0 {
+    if acc.count == 0 {
         panic!("No segments were processed");
     }
 
     acc.ifft.process(&mut acc.result);
-    normalize(&mut acc, (count as usize * SEGMENT_SIZE) as f64);
+    normalize(&mut acc);
     write(output_file, &acc.result[0..IR_SIZE]);
-    nzcount / (count as u64 * 2)
+    nzcount / (acc.count as u64 * 2)
 }
 
 fn process(s: &mut Segment, acc: &mut Accumulator) -> u64 {
@@ -131,9 +132,11 @@ fn accumulate(acc: &mut Accumulator, s: &Segment) {
         let d = s.mic[i].div(s.pickup[i]);
         acc.result[i] = acc.result[i].add(d);
     }
+    acc.count += 1;
 }
 
-fn normalize(acc: &mut Accumulator, dividend: f64) {
+fn normalize(acc: &mut Accumulator) {
+    let dividend = (acc.count as usize * acc.result.len()) as f64;
     let c = Complex64::new(dividend, 0f64);
     for i in 0..acc.result.len() {
         acc.result[i] = acc.result[i].div(c)
