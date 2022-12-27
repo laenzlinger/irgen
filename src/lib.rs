@@ -79,7 +79,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
             i += 1;
         }
         if i == SEGMENT_SIZE {
-            process(&mut segment, &mut acc);
+            segment.process(&mut acc);
             i = 0;
             segment.count += 1;
         }
@@ -95,39 +95,41 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     acc.near_zero_count / (acc.count as u64 * 2)
 }
 
-fn process(s: &mut Segment, acc: &mut Accumulator) -> bool {
-    if s.count < 2 || acc.count > 3 {
-        return true;
+impl Segment {
+    pub fn process(&mut self, acc: &mut Accumulator) -> bool {
+        if self.count < 2 || acc.count > 3 {
+            return true;
+        }
+        // FIXME check for clipping and too_low
+        self.apply_window();
+        self.fft.process(&mut self.mic);
+        self.fft.process(&mut self.pickup);
+        let near_zero_count = self.apply_near_zero();
+        accumulate(acc, &self, near_zero_count);
+        return false;
     }
-    // FIXME check for clipping and too_low
-    apply_window(s);
-    s.fft.process(&mut s.mic);
-    s.fft.process(&mut s.pickup);
-    let near_zero_count = apply_near_zero(s);
-    accumulate(acc, &s, near_zero_count);
-    return false;
-}
 
-fn apply_window(s: &mut Segment) {
-    let mut window = apodize::blackman_iter(s.mic.len());
-    for i in 0..s.mic.len() {
-        let w = window.next().unwrap();
-        s.mic[i] = Complex64::new(s.mic[i].re() * w, 0f64);
-        s.pickup[i] = Complex64::new(s.pickup[i].re() * w, 0f64);
-    }
-}
-
-fn apply_near_zero(s: &mut Segment) -> u64 {
-    let mut count: u64 = 0;
-    let near_zero = max(&s.pickup);
-    for i in 0..s.mic.len() {
-        if s.pickup[i].abs() < near_zero {
-            s.pickup[i] = ONE;
-            s.mic[i] = ONE;
-            count += 1;
+    fn apply_window(&mut self) {
+        let mut window = apodize::blackman_iter(self.mic.len());
+        for i in 0..self.mic.len() {
+            let w = window.next().unwrap();
+            self.mic[i] = Complex64::new(self.mic[i].re() * w, 0f64);
+            self.pickup[i] = Complex64::new(self.pickup[i].re() * w, 0f64);
         }
     }
-    count
+
+    fn apply_near_zero(&mut self) -> u64 {
+        let mut count: u64 = 0;
+        let near_zero = max(&self.pickup);
+        for i in 0..self.mic.len() {
+            if self.pickup[i].abs() < near_zero {
+                self.pickup[i] = ONE;
+                self.mic[i] = ONE;
+                count += 1;
+            }
+        }
+        count
+    }
 }
 
 fn accumulate(acc: &mut Accumulator, s: &Segment, near_zero_count: u64) {
