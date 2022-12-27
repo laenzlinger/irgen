@@ -63,7 +63,7 @@ impl Generator {
                 return true;
             }
         }
-        return false;
+        false
     }
 
     pub fn avg_near_zero_count(&self) -> u64 {
@@ -107,7 +107,7 @@ impl Segment {
         self.fft.process(&mut self.mic);
         self.fft.process(&mut self.pickup);
         let near_zero_count = self.apply_near_zero();
-        accu.accumulate(&self, near_zero_count);
+        accu.accumulate(self, near_zero_count);
         accu.done()
     }
 
@@ -195,7 +195,7 @@ impl Accumulator {
             sample_format: hound::SampleFormat::Int,
         };
         let mut writer = hound::WavWriter::create(filename, spec).unwrap();
-        for s in self.result[0..IR_SIZE].into_iter() {
+        for s in self.result[0..IR_SIZE].iter() {
             let sample = (s.re() * SCALE_16_BIT_PCM) as i32;
             writer.write_sample(sample).unwrap();
         }
@@ -204,7 +204,7 @@ impl Accumulator {
 
 fn max(samples: &[Complex64]) -> f64 {
     samples
-        .into_iter()
+        .iter()
         .map(|c| c.abs())
         .reduce(f64::max)
         .unwrap()

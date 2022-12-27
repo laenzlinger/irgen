@@ -1,4 +1,4 @@
-use irgen;
+
 
 #[test]
 fn test_generator() {
