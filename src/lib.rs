@@ -62,7 +62,6 @@ struct Generator {
     segment: Segment,
     accu: Accumulator,
     frame_count: usize,
-    done: bool,
 }
 
 impl Generator {
@@ -75,12 +74,11 @@ impl Generator {
             segment,
             accu,
             frame_count: 0,
-            done: false,
         }
     }
 
     pub fn process(&mut self, frame: Frame) -> bool {
-        if self.done {
+        if self.accu.done() {
             return true;
         }
         self.segment.mic[self.frame_count] = Complex64::new(frame.mic, 0f64);
@@ -88,8 +86,8 @@ impl Generator {
         self.frame_count += 1;
         if self.frame_count == SEGMENT_SIZE {
             self.frame_count = 0;
-            self.done = self.segment.process(&mut self.accu);
-            if self.done {
+            let done = self.segment.process(&mut self.accu);
+            if done {
                 self.accu.process();
                 return true;
             }
@@ -129,8 +127,7 @@ impl Segment {
         if self.count < 3 {
             return false;
         }
-        // FIXME implement done on accu
-        if accu.count > 3 {
+        if accu.done() {
             return true;
         }
 
@@ -140,10 +137,7 @@ impl Segment {
         self.fft.process(&mut self.pickup);
         let near_zero_count = self.apply_near_zero();
         accu.accumulate(&self, near_zero_count);
-        if accu.count > 3 {
-            return true;
-        }
-        return false;
+        accu.done()
     }
 
     fn apply_window(&mut self) {
@@ -217,6 +211,10 @@ impl Accumulator {
         for i in 0..self.result.len() {
             self.result[i] = self.result[i].div(c)
         }
+    }
+
+    fn done(&self) -> bool {
+        self.count > 3
     }
 
     fn write(&self, filename: String) {
