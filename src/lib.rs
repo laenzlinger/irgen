@@ -68,8 +68,8 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
                 apply_window(&mut segment.pickup);
                 fft.process(&mut segment.mic);
                 fft.process(&mut segment.pickup);
-                nzcount += apply_near_zero(&mut segment.mic, &mut segment.pickup);
-                accumulate(&segment.mic, &segment.pickup, &mut acc);
+                nzcount += apply_near_zero(&mut segment);
+                accumulate(&segment, &mut acc);
                 count += 1;
             }
             i = 0;
@@ -88,9 +88,9 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     nzcount / (count as u64 * 2)
 }
 
-fn accumulate(mic: &[Complex64], pickup: &[Complex64], acc: &mut [Complex64]) {
+fn accumulate(s: &Segment, acc: &mut [Complex64]) {
     for i in 0..acc.len() {
-        let d = mic[i].div(pickup[i]);
+        let d = s.mic[i].div(s.pickup[i]);
         acc[i] = acc[i].add(d);
     }
 }
@@ -110,13 +110,13 @@ fn apply_window(s: &mut [Complex64]) {
     }
 }
 
-fn apply_near_zero(mic: &mut [Complex64], pickup: &mut [Complex64]) -> u64 {
+fn apply_near_zero(segment: &mut Segment) -> u64 {
     let mut count: u64 = 0;
-    let near_zero = max(pickup);
-    for i in 0..mic.len() {
-        if pickup[i].abs() < near_zero {
-            pickup[i] = ONE;
-            mic[i] = ONE;
+    let near_zero = max(&mut segment.pickup);
+    for i in 0..segment.mic.len() {
+        if segment.pickup[i].abs() < near_zero {
+            segment.pickup[i] = ONE;
+            segment.mic[i] = ONE;
             count += 1;
         }
     }
