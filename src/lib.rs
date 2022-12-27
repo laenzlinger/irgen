@@ -52,7 +52,6 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
         if i == SEGMENT_SIZE {
             segment.process(&mut acc);
             i = 0;
-            segment.count += 1;
         }
     }
 
@@ -78,7 +77,8 @@ impl Segment {
     }
 
     pub fn process(&mut self, acc: &mut Accumulator) -> bool {
-        if self.count < 2 || acc.count > 3 {
+        self.count += 1;
+        if self.count < 3 || acc.count > 3 {
             return true;
         }
         // FIXME check for clipping and too_low
