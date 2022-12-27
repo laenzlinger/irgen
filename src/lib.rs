@@ -59,10 +59,6 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
         }
     }
 
-    if acc.count == 0 {
-        panic!("No segments were processed");
-    }
-
     acc.process();
 
     write(output_file, &acc.result[0..IR_SIZE]);
@@ -130,11 +126,6 @@ struct Accumulator {
 }
 
 impl Accumulator {
-    pub fn process(&mut self) {
-        self.ifft.process(&mut self.result);
-        self.normalize();
-    }
-
     fn new(ifft: Arc<dyn Fft<f64>>) -> Accumulator {
         Accumulator {
             count: 0,
@@ -142,6 +133,16 @@ impl Accumulator {
             result: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
             ifft,
         }
+    }
+
+    pub fn process(&mut self) {
+        // validate the number of segments accumulated
+        if self.count == 0 {
+            panic!("No segments were processed");
+        }
+
+        self.ifft.process(&mut self.result);
+        self.normalize();
     }
 
     fn accumulate(&mut self, s: &Segment, near_zero_count: u64) {
