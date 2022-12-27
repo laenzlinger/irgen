@@ -25,6 +25,7 @@ struct Segment {
 
 struct Accumulator {
     count: u8,
+    near_zero_count: u64,
     result: Vec<Complex64>,
     ifft: Arc<dyn Fft<f64>>,
 }
@@ -55,6 +56,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     let ifft = planner.plan_fft_inverse(SEGMENT_SIZE);
     let mut acc = Accumulator {
         count: 0,
+        near_zero_count: 0,
         result: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
         ifft,
     };
@@ -66,7 +68,6 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
 
     let mut i = 0;
     let mut ch1 = true;
-    let mut nzcount: u64 = 0;
     for sample in samples {
         if ch1 {
             segment.pickup[i] = sample;
@@ -79,7 +80,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
         if i == SEGMENT_SIZE {
             // FIXME check for clipping and too_low
             if segment.count > 1 && acc.count < 4 {
-                nzcount += process(&mut segment, &mut acc);
+                process(&mut segment, &mut acc);
             }
             i = 0;
             segment.count += 1;
@@ -93,16 +94,15 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     acc.ifft.process(&mut acc.result);
     normalize(&mut acc);
     write(output_file, &acc.result[0..IR_SIZE]);
-    nzcount / (acc.count as u64 * 2)
+    acc.near_zero_count / (acc.count as u64 * 2)
 }
 
-fn process(s: &mut Segment, acc: &mut Accumulator) -> u64 {
+fn process(s: &mut Segment, acc: &mut Accumulator) {
     apply_window(s);
     s.fft.process(&mut s.mic);
     s.fft.process(&mut s.pickup);
-    let nzount = apply_near_zero(s);
-    accumulate(acc, &s);
-    nzount
+    let near_zero_count = apply_near_zero(s);
+    accumulate(acc, &s, near_zero_count);
 }
 
 fn apply_window(s: &mut Segment) {
@@ -127,12 +127,13 @@ fn apply_near_zero(s: &mut Segment) -> u64 {
     count
 }
 
-fn accumulate(acc: &mut Accumulator, s: &Segment) {
+fn accumulate(acc: &mut Accumulator, s: &Segment, near_zero_count: u64) {
     for i in 0..acc.result.len() {
         let d = s.mic[i].div(s.pickup[i]);
         acc.result[i] = acc.result[i].add(d);
     }
     acc.count += 1;
+    acc.near_zero_count += near_zero_count
 }
 
 fn normalize(acc: &mut Accumulator) {
