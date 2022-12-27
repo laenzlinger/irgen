@@ -29,26 +29,21 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     if duration < MIN_DURATION_SECONDS as f32 {
         panic!("sample needs to be at least {MIN_DURATION_SECONDS}s long, but was {duration:.2}s");
     }
-    let samples = reader
+    let mut samples = reader
         .samples::<i32>()
         .filter_map(|s| s.ok()) // ignore the errors while reading
         .map(|s| s as f64 / SCALE_24_BIT_PCM); // normalize 24bit to +-1.0
 
     let mut generator = Generator::new();
-
-    let mut ch1 = true;
-    let mut pickup: f64 = 0f64;
-    for sample in samples {
-        if ch1 {
-            pickup = sample;
-        } else {
-            generator.process(Frame {
-                pickup,
-                mic: sample,
-            });
-        }
-        ch1 = !ch1
+    let mut done = false;
+    while !done {
+        done = samples
+            .next()
+            .zip(samples.next())
+            .map(Frame::new)
+            .map_or(true, |frame| generator.process(frame));
     }
+
     generator.write(output_file);
     generator.avg_near_zero_count()
 }
@@ -56,6 +51,15 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
 struct Frame {
     pickup: f64,
     mic: f64,
+}
+
+impl Frame {
+    fn new(frame: (f64, f64)) -> Frame {
+        Frame {
+            pickup: frame.0,
+            mic: frame.1,
+        }
+    }
 }
 
 struct Generator {
@@ -205,7 +209,6 @@ impl Accumulator {
     }
 
     fn normalize(&mut self) {
-        println!("{}", self.count);
         let dividend = (self.count as usize * self.result.len()) as f64;
         let c = Complex64::new(dividend, 0f64);
         for i in 0..self.result.len() {
