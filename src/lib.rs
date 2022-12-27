@@ -104,20 +104,6 @@ fn process(s: &mut Segment, acc: &mut Accumulator) -> u64 {
     nzount
 }
 
-fn accumulate(acc: &mut Accumulator, s: &Segment) {
-    for i in 0..acc.result.len() {
-        let d = s.mic[i].div(s.pickup[i]);
-        acc.result[i] = acc.result[i].add(d);
-    }
-}
-
-fn normalize(acc: &mut Accumulator, dividend: f64) {
-    let c = Complex64::new(dividend, 0f64);
-    for i in 0..acc.result.len() {
-        acc.result[i] = acc.result[i].div(c)
-    }
-}
-
 fn apply_window(s: &mut Segment) {
     let mut window = apodize::blackman_iter(s.mic.len());
     for i in 0..s.mic.len() {
@@ -138,6 +124,20 @@ fn apply_near_zero(s: &mut Segment) -> u64 {
         }
     }
     count
+}
+
+fn accumulate(acc: &mut Accumulator, s: &Segment) {
+    for i in 0..acc.result.len() {
+        let d = s.mic[i].div(s.pickup[i]);
+        acc.result[i] = acc.result[i].add(d);
+    }
+}
+
+fn normalize(acc: &mut Accumulator, dividend: f64) {
+    let c = Complex64::new(dividend, 0f64);
+    for i in 0..acc.result.len() {
+        acc.result[i] = acc.result[i].div(c)
+    }
 }
 
 fn max(samples: &[Complex64]) -> f64 {
