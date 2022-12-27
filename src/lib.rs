@@ -63,8 +63,8 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
         panic!("No segments were processed");
     }
 
-    acc.ifft.process(&mut acc.result);
-    acc.normalize();
+    acc.process();
+
     write(output_file, &acc.result[0..IR_SIZE]);
     acc.near_zero_count / (acc.count as u64 * 2)
 }
@@ -122,7 +122,6 @@ impl Segment {
     }
 }
 
-// FIXME introduce constructor and public processor
 struct Accumulator {
     count: u8,
     near_zero_count: u64,
@@ -131,6 +130,11 @@ struct Accumulator {
 }
 
 impl Accumulator {
+    pub fn process(&mut self) {
+        self.ifft.process(&mut self.result);
+        self.normalize();
+    }
+
     fn new(ifft: Arc<dyn Fft<f64>>) -> Accumulator {
         Accumulator {
             count: 0,
@@ -139,6 +143,7 @@ impl Accumulator {
             ifft,
         }
     }
+
     fn accumulate(&mut self, s: &Segment, near_zero_count: u64) {
         for i in 0..self.result.len() {
             let d = s.mic[i].div(s.pickup[i]);
