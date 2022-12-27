@@ -30,11 +30,8 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
         panic!("sample needs to be at least {MIN_DURATION_SECONDS}s long, but was {duration:.2}s");
     }
     let mut planner = FftPlanner::<f64>::new();
-    let fft = planner.plan_fft_forward(SEGMENT_SIZE);
-    let mut segment = Segment::new(fft);
-
-    let ifft = planner.plan_fft_inverse(SEGMENT_SIZE);
-    let mut acc = Accumulator::new(ifft);
+    let mut segment = Segment::new(&mut planner);
+    let mut acc = Accumulator::new(&mut planner);
 
     let samples = reader
         .samples::<i32>()
@@ -70,7 +67,8 @@ struct Segment {
 }
 
 impl Segment {
-    fn new(fft: Arc<dyn Fft<f64>>) -> Segment {
+    fn new(planner: &mut FftPlanner<f64>) -> Segment {
+        let fft = planner.plan_fft_forward(SEGMENT_SIZE);
         Segment {
             count: 0,
             mic: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
@@ -123,7 +121,8 @@ struct Accumulator {
 }
 
 impl Accumulator {
-    fn new(ifft: Arc<dyn Fft<f64>>) -> Accumulator {
+    fn new(planner: &mut FftPlanner<f64>) -> Accumulator {
+        let ifft = planner.plan_fft_inverse(SEGMENT_SIZE);
         Accumulator {
             count: 0,
             near_zero_count: 0,
