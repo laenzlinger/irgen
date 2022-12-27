@@ -16,21 +16,6 @@ const SCALE_24_BIT_PCM: f64 = 8388608.0;
 const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
 const MIN_DURATION_SECONDS: u32 = 30;
 
-// FIXME introduce methods
-struct Segment {
-    count: u8,
-    mic: Vec<Complex64>,
-    pickup: Vec<Complex64>,
-    fft: Arc<dyn Fft<f64>>,
-}
-
-struct Accumulator {
-    count: u8,
-    near_zero_count: u64,
-    result: Vec<Complex64>,
-    ifft: Arc<dyn Fft<f64>>,
-}
-
 pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     let mut reader = WavReader::open(input_file).expect("Failed to open WAV file");
     let spec = reader.spec();
@@ -85,9 +70,16 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     }
 
     acc.ifft.process(&mut acc.result);
-    normalize(&mut acc);
+    acc.normalize();
     write(output_file, &acc.result[0..IR_SIZE]);
     acc.near_zero_count / (acc.count as u64 * 2)
+}
+
+struct Segment {
+    count: u8,
+    mic: Vec<Complex64>,
+    pickup: Vec<Complex64>,
+    fft: Arc<dyn Fft<f64>>,
 }
 
 impl Segment {
@@ -109,7 +101,7 @@ impl Segment {
         self.fft.process(&mut self.mic);
         self.fft.process(&mut self.pickup);
         let near_zero_count = self.apply_near_zero();
-        accumulate(acc, &self, near_zero_count);
+        acc.accumulate(&self, near_zero_count);
         return false;
     }
 
@@ -136,20 +128,30 @@ impl Segment {
     }
 }
 
-fn accumulate(acc: &mut Accumulator, s: &Segment, near_zero_count: u64) {
-    for i in 0..acc.result.len() {
-        let d = s.mic[i].div(s.pickup[i]);
-        acc.result[i] = acc.result[i].add(d);
-    }
-    acc.count += 1;
-    acc.near_zero_count += near_zero_count
+// FIXME introduce constructor and public processor
+struct Accumulator {
+    count: u8,
+    near_zero_count: u64,
+    result: Vec<Complex64>,
+    ifft: Arc<dyn Fft<f64>>,
 }
 
-fn normalize(acc: &mut Accumulator) {
-    let dividend = (acc.count as usize * acc.result.len()) as f64;
-    let c = Complex64::new(dividend, 0f64);
-    for i in 0..acc.result.len() {
-        acc.result[i] = acc.result[i].div(c)
+impl Accumulator {
+    fn accumulate(&mut self, s: &Segment, near_zero_count: u64) {
+        for i in 0..self.result.len() {
+            let d = s.mic[i].div(s.pickup[i]);
+            self.result[i] = self.result[i].add(d);
+        }
+        self.count += 1;
+        self.near_zero_count += near_zero_count
+    }
+
+    fn normalize(&mut self) {
+        let dividend = (self.count as usize * self.result.len()) as f64;
+        let c = Complex64::new(dividend, 0f64);
+        for i in 0..self.result.len() {
+            self.result[i] = self.result[i].div(c)
+        }
     }
 }
 
