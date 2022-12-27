@@ -47,12 +47,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     let mut planner = FftPlanner::<f64>::new();
     let fft = planner.plan_fft_forward(SEGMENT_SIZE);
 
-    let mut segment = Segment {
-        count: 0,
-        mic: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
-        pickup: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
-        fft,
-    };
+    let mut segment = Segment::new(fft);
 
     let ifft = planner.plan_fft_inverse(SEGMENT_SIZE);
     let mut acc = Accumulator {
@@ -96,6 +91,15 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
 }
 
 impl Segment {
+    fn new(fft: Arc<dyn Fft<f64>>) -> Segment {
+        Segment {
+            count: 0,
+            mic: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
+            pickup: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
+            fft,
+        }
+    }
+
     pub fn process(&mut self, acc: &mut Accumulator) -> bool {
         if self.count < 2 || acc.count > 3 {
             return true;
