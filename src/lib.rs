@@ -15,7 +15,7 @@ const SCALE_24_BIT_PCM: f64 = 8388608.0;
 const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
 const MIN_DURATION_SECONDS: u32 = 30;
 
-struct Segement {
+struct Segment {
     mic: Vec<Complex64>,
     pickup: Vec<Complex64>,
 }
@@ -37,7 +37,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     let mut planner = FftPlanner::<f64>::new();
     let fft = planner.plan_fft_forward(SEGMENT_SIZE);
     let mut acc = vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE];
-    let mut segment = Segement {
+    let mut segment = Segment {
         mic: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
         pickup: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
     };
