@@ -29,33 +29,81 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     if duration < MIN_DURATION_SECONDS as f32 {
         panic!("sample needs to be at least {MIN_DURATION_SECONDS}s long, but was {duration:.2}s");
     }
-    let mut planner = FftPlanner::<f64>::new();
-    let mut segment = Segment::new(&mut planner);
-    let mut acc = Accumulator::new(&mut planner);
-
     let samples = reader
         .samples::<i32>()
         .filter_map(|s| s.ok()) // ignore the errors while reading
-        .map(|s| Complex64::new(s as f64 / SCALE_24_BIT_PCM, 0f64)); // normalize 24bit to +-1.0
+        .map(|s| s as f64 / SCALE_24_BIT_PCM); // normalize 24bit to +-1.0
 
-    let mut i = 0;
+    let mut generator = Generator::new();
+
     let mut ch1 = true;
+    let mut pickup: f64 = 0f64;
     for sample in samples {
         if ch1 {
-            segment.pickup[i] = sample;
-            ch1 = false;
+            pickup = sample;
         } else {
-            segment.mic[i] = sample;
-            ch1 = true;
-            i += 1;
+            generator.process(Frame {
+                pickup,
+                mic: sample,
+            });
         }
-        if i == SEGMENT_SIZE {
-            segment.process(&mut acc);
-            i = 0;
+        ch1 = !ch1
+    }
+    generator.write(output_file);
+    generator.avg_near_zero_count()
+}
+
+struct Frame {
+    pickup: f64,
+    mic: f64,
+}
+
+struct Generator {
+    segment: Segment,
+    accu: Accumulator,
+    frame_count: usize,
+    done: bool,
+}
+
+impl Generator {
+    pub fn new() -> Generator {
+        let mut planner = FftPlanner::<f64>::new();
+        let segment = Segment::new(&mut planner);
+        let accu = Accumulator::new(&mut planner);
+
+        Generator {
+            segment,
+            accu,
+            frame_count: 0,
+            done: false,
         }
     }
 
-    acc.process(output_file)
+    pub fn process(&mut self, frame: Frame) -> bool {
+        if self.done {
+            return true;
+        }
+        self.segment.mic[self.frame_count] = Complex64::new(frame.mic, 0f64);
+        self.segment.pickup[self.frame_count] = Complex64::new(frame.pickup, 0f64);
+        self.frame_count += 1;
+        if self.frame_count == SEGMENT_SIZE {
+            self.frame_count = 0;
+            self.done = self.segment.process(&mut self.accu);
+            if self.done {
+                self.accu.process();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    pub fn avg_near_zero_count(&self) -> u64 {
+        self.accu.avg_near_zero_count()
+    }
+
+    pub fn write(&self, file_name: String) {
+        self.accu.write(file_name);
+    }
 }
 
 struct Segment {
@@ -76,17 +124,25 @@ impl Segment {
         }
     }
 
-    pub fn process(&mut self, acc: &mut Accumulator) -> bool {
+    fn process(&mut self, accu: &mut Accumulator) -> bool {
         self.count += 1;
-        if self.count < 3 || acc.count > 3 {
+        if self.count < 3 {
+            return false;
+        }
+        // FIXME implement done on accu
+        if accu.count > 3 {
             return true;
         }
+
         // FIXME check for clipping and too_low
         self.apply_window();
         self.fft.process(&mut self.mic);
         self.fft.process(&mut self.pickup);
         let near_zero_count = self.apply_near_zero();
-        acc.accumulate(&self, near_zero_count);
+        accu.accumulate(&self, near_zero_count);
+        if accu.count > 3 {
+            return true;
+        }
         return false;
     }
 
@@ -131,7 +187,7 @@ impl Accumulator {
         }
     }
 
-    pub fn process(&mut self, filename: String) -> u64 {
+    fn process(&mut self) {
         // validate the number of segments accumulated
         if self.count == 0 {
             panic!("No segments were processed");
@@ -139,7 +195,9 @@ impl Accumulator {
 
         self.ifft.process(&mut self.result);
         self.normalize();
-        self.write(filename);
+    }
+
+    fn avg_near_zero_count(&self) -> u64 {
         self.near_zero_count / (self.count as u64 * 2)
     }
 
@@ -153,6 +211,7 @@ impl Accumulator {
     }
 
     fn normalize(&mut self) {
+        println!("{}", self.count);
         let dividend = (self.count as usize * self.result.len()) as f64;
         let c = Complex64::new(dividend, 0f64);
         for i in 0..self.result.len() {
