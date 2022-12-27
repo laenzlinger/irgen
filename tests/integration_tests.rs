@@ -1,5 +1,3 @@
-
-
 #[test]
 fn test_generator() {
     let result = irgen::generate_from_wav(
