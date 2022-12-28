@@ -23,16 +23,37 @@ impl Frame {
 }
 
 pub struct Thresholds {
+    /// Above this value the input is considered to be clipping.
+    /// A segment is ignored in case its maximum is above this value.
+    ///
+    /// Range [0.0, 1.0]
     clip: f64,
+
+    /// Below this value the input is considered to be too small.
+    /// A segment is ignored in case its maximum is below this value.
+    /// Range [0.0, 1.0]
     too_low: f64,
+
+    /// In case a frequency of the pickup is below this value (relative to the maximum)
+    /// it is ignored.
     near_zero: f64,
 }
 
 pub struct Options {
+    /// The number of samples which are analyzed.
     segment_size: usize,
+
+    /// The size of the output impulse response.
     ir_size: usize,
+
+    /// The sample rate of the input/output data.
+    /// Relevant only to write the ouptut to a file.
     sample_rate: u32,
+
+    /// The amount of bits per sample. (16 or 24).
+    /// Relevant only to write the ouptut to a file.
     bits_per_sample: u16,
+
     thresholds: Thresholds,
 }
 
@@ -83,6 +104,9 @@ impl Generator {
         }
     }
 
+    /// Process the given Frame of data.
+    ///
+    /// Returns true if the generator has received enough data to generate the output.
     pub fn process(&mut self, frame: Frame) -> bool {
         if self.accu.done() {
             return true;
@@ -90,6 +114,9 @@ impl Generator {
         self.segment.add(frame, &mut self.accu, &self.options)
     }
 
+    /// Returns the result of the Generator.
+    ///
+    /// Panics if the Generator did not yet process enough data.
     pub fn result(&self) -> Result {
         Result {
             avg_near_zero_count: self.accu.avg_near_zero_count(),
@@ -98,6 +125,13 @@ impl Generator {
         }
     }
 
+    /// Write the result of the Generator to a .wav file.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_name` - A string that contains the path/file name.
+    ///
+    /// Panics if the Generator did not yet process enough data.
     pub fn write(&self, file_name: String) {
         self.accu.write(file_name, &self.options);
     }
@@ -280,6 +314,7 @@ fn scale_factor(bits_per_sample: u16) -> f64 {
     }
 }
 
+/// Convenience function to run the Generator with from a .wav file as data source.
 pub fn generate_from_wav(
     input_file: String,
     output_file: Option<String>,
