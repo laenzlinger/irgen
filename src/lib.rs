@@ -11,7 +11,6 @@ pub const SCALE_24_BIT_PCM: f64 = 8388608.0;
 pub const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
 
 // Algorithm
-const IR_SIZE: usize = 2048;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 const MINUS_65_DB: f64 = 0.0005623413251903491;
 const CLIP_THRESHOLD: f64 = 0.999;
@@ -33,6 +32,7 @@ impl Frame {
 
 pub struct Options {
     segment_size: usize,
+    ir_size: usize,
     sample_rate: u32,
 }
 
@@ -41,6 +41,7 @@ impl Default for Options {
         Options {
             segment_size: 131072, // 2^17
             sample_rate: 48000,
+            ir_size: 2048,
         }
     }
 }
@@ -95,7 +96,7 @@ impl Generator {
     }
 
     pub fn write(&self, file_name: String) {
-        self.accu.write(file_name, self.options.sample_rate);
+        self.accu.write(file_name, &self.options);
     }
 }
 
@@ -219,15 +220,15 @@ impl Accumulator {
         self.count > 3
     }
 
-    fn write(&self, filename: String, sample_rate: u32) {
+    fn write(&self, filename: String, options: &Options) {
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate,
+            sample_rate: options.sample_rate,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
         let mut writer = hound::WavWriter::create(filename, spec).unwrap();
-        for s in self.result[0..IR_SIZE].iter() {
+        for s in self.result[0..options.ir_size].iter() {
             let sample = (s.re() * SCALE_16_BIT_PCM) as i32;
             writer.write_sample(sample).unwrap();
         }
