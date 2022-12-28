@@ -19,8 +19,7 @@ Pre-Requesite: Install [Rust](https://www.rust-lang.org/tools/install)
 cargo install irgen
 ```
 
-## Comand Line Interface
-
+## Command Line Interface
 
 Run the help:
 ```
