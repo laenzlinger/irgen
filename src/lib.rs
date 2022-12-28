@@ -32,6 +32,13 @@ pub struct Thresholds {
     near_zero: f64,
 }
 
+pub struct Options {
+    segment_size: usize,
+    ir_size: usize,
+    sample_rate: u32,
+    thresholds: Thresholds,
+}
+
 impl Default for Thresholds {
     fn default() -> Self {
         Thresholds {
@@ -40,13 +47,6 @@ impl Default for Thresholds {
             near_zero: 0.0005623413251903491, // -65dB
         }
     }
-}
-
-pub struct Options {
-    segment_size: usize,
-    ir_size: usize,
-    sample_rate: u32,
-    thresholds: Thresholds,
 }
 
 impl Default for Options {
@@ -64,7 +64,6 @@ pub struct Generator {
     segment: Segment,
     accu: Accumulator,
     options: Options,
-    frame_count: usize,
 }
 
 impl Default for Generator {
@@ -83,7 +82,6 @@ impl Generator {
             segment,
             accu,
             options,
-            frame_count: 0,
         }
     }
 
@@ -91,11 +89,8 @@ impl Generator {
         if self.accu.done() {
             return true;
         }
-        self.segment.mic[self.frame_count] = Complex64::new(frame.mic, 0f64);
-        self.segment.pickup[self.frame_count] = Complex64::new(frame.pickup, 0f64);
-        self.frame_count += 1;
-        if self.frame_count == self.segment.mic.len() {
-            self.frame_count = 0;
+        let ready = self.segment.add(frame);
+        if ready {
             let done = self.segment.process(&mut self.accu, &self.options);
             if done {
                 self.accu.process();
@@ -115,10 +110,11 @@ impl Generator {
 }
 
 struct Segment {
-    count: u32,
     mic: Vec<Complex64>,
     pickup: Vec<Complex64>,
     fft: Arc<dyn Fft<f64>>,
+    count: u32,
+    frame_count: usize,
 }
 
 impl Segment {
@@ -126,10 +122,22 @@ impl Segment {
         let fft = planner.plan_fft_forward(options.segment_size);
         Segment {
             count: 0,
+            frame_count: 0,
             mic: vec![Complex64::zero(); options.segment_size],
             pickup: vec![Complex64::zero(); options.segment_size],
             fft,
         }
+    }
+
+    fn add(&mut self, frame: Frame) -> bool {
+        self.mic[self.frame_count] = Complex64::new(frame.mic, 0f64);
+        self.pickup[self.frame_count] = Complex64::new(frame.pickup, 0f64);
+        self.frame_count += 1;
+        let ready = self.frame_count == self.mic.len();
+        if ready {
+            self.frame_count = 0;
+        }
+        ready
     }
 
     fn process(&mut self, accu: &mut Accumulator, options: &Options) -> bool {
