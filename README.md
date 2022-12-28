@@ -10,7 +10,7 @@ The following algorithms are implemented:
 
 WARNING: The API is still under development and will very likely change
 (especially in case new algorithms would be added).
-Therefore, Ppease don't expect any API stability at the moment.
+Therefore, please don't expect any API stability at the moment.
 
 ## Installation
 
