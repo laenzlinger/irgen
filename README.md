@@ -3,7 +3,7 @@
 [![Current Crates.io Version][crates-badge]][crates-url]
 
 
-[crates-badge]: https://img.shields.io/crates/v/lv2.svg
+[crates-badge]: https://img.shields.io/crates/v/irgen.svg
 [crates-url]: https://crates.io/crates/irgen
 
 Create IR files to enhance the signal of an acoustic instrument pickups.
