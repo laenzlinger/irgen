@@ -90,13 +90,19 @@ impl Generator {
         self.segment.add(frame, &mut self.accu, &self.options)
     }
 
-    pub fn avg_near_zero_count(&self) -> u64 {
-        self.accu.avg_near_zero_count()
+    pub fn result(&self) -> Result {
+        Result {
+            avg_near_zero_count: self.accu.avg_near_zero_count(),
+        }
     }
 
     pub fn write(&self, file_name: String) {
         self.accu.write(file_name, &self.options);
     }
+}
+
+pub struct Result {
+    pub avg_near_zero_count: u64,
 }
 
 struct Segment {
@@ -270,7 +276,7 @@ fn scale_factor(bits_per_sample: u16) -> f64 {
     }
 }
 
-pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
+pub fn generate_from_wav(input_file: String, output_file: String) -> Result {
     let mut reader = WavReader::open(input_file).expect("Failed to open WAV file.");
     let spec = reader.spec();
     if spec.channels != 2 {
@@ -301,7 +307,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     }
 
     generator.write(output_file);
-    generator.avg_near_zero_count()
+    generator.result()
 }
 
 #[cfg(test)]
