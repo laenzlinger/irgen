@@ -10,11 +10,7 @@ use rustfft::{num_complex::Complex64, Fft, FftPlanner};
 pub const SCALE_24_BIT_PCM: f64 = 8388608.0;
 pub const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
 
-// Algorithm
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
-const MINUS_65_DB: f64 = 0.0005623413251903491;
-const CLIP_THRESHOLD: f64 = 0.999;
-const TOO_LOW_THRESHOLD: f64 = 0.178;
 
 pub struct Frame {
     pickup: f64,
@@ -30,10 +26,27 @@ impl Frame {
     }
 }
 
+pub struct Thresholds {
+    clip: f64,
+    too_low: f64,
+    near_zero: f64,
+}
+
+impl Default for Thresholds {
+    fn default() -> Self {
+        Thresholds {
+            clip: 0.999,
+            too_low: 0.178,
+            near_zero: 0.0005623413251903491, // -65dB
+        }
+    }
+}
+
 pub struct Options {
     segment_size: usize,
     ir_size: usize,
     sample_rate: u32,
+    thresholds: Thresholds,
 }
 
 impl Default for Options {
@@ -42,6 +55,7 @@ impl Default for Options {
             segment_size: 131072, // 2^17
             sample_rate: 48000,
             ir_size: 2048,
+            thresholds: Default::default(),
         }
     }
 }
@@ -62,7 +76,7 @@ impl Default for Generator {
 impl Generator {
     pub fn new(options: Options) -> Generator {
         let mut planner = FftPlanner::<f64>::new();
-        let segment = Segment::new(&mut planner, options.segment_size);
+        let segment = Segment::new(&mut planner, &options);
         let accu = Accumulator::new(&mut planner, options.segment_size);
 
         Generator {
@@ -82,7 +96,7 @@ impl Generator {
         self.frame_count += 1;
         if self.frame_count == self.segment.mic.len() {
             self.frame_count = 0;
-            let done = self.segment.process(&mut self.accu);
+            let done = self.segment.process(&mut self.accu, &self.options);
             if done {
                 self.accu.process();
                 return true;
@@ -108,17 +122,17 @@ struct Segment {
 }
 
 impl Segment {
-    fn new(planner: &mut FftPlanner<f64>, segment_size: usize) -> Segment {
-        let fft = planner.plan_fft_forward(segment_size);
+    fn new(planner: &mut FftPlanner<f64>, options: &Options) -> Segment {
+        let fft = planner.plan_fft_forward(options.segment_size);
         Segment {
             count: 0,
-            mic: vec![Complex64::zero(); segment_size],
-            pickup: vec![Complex64::zero(); segment_size],
+            mic: vec![Complex64::zero(); options.segment_size],
+            pickup: vec![Complex64::zero(); options.segment_size],
             fft,
         }
     }
 
-    fn process(&mut self, accu: &mut Accumulator) -> bool {
+    fn process(&mut self, accu: &mut Accumulator, options: &Options) -> bool {
         self.count += 1;
         if accu.done() {
             return true;
@@ -126,22 +140,22 @@ impl Segment {
         if self.count < 3 {
             return false;
         }
-        if !self.is_valid() {
+        if !self.is_valid(&options.thresholds) {
             return false;
         }
 
         self.apply_window();
         self.fft.process(&mut self.mic);
         self.fft.process(&mut self.pickup);
-        let near_zero_count = self.apply_near_zero();
+        let near_zero_count = self.apply_near_zero(&options.thresholds);
         accu.accumulate(self, near_zero_count);
         accu.done()
     }
 
-    fn is_valid(&mut self) -> bool {
+    fn is_valid(&mut self, thresholds: &Thresholds) -> bool {
         let max = max(&self.mic).max(max(&self.pickup));
-        let clip = max > CLIP_THRESHOLD;
-        let too_low = max < TOO_LOW_THRESHOLD;
+        let clip = max > thresholds.clip;
+        let too_low = max < thresholds.too_low;
         !(clip || too_low)
     }
     fn apply_window(&mut self) {
@@ -153,9 +167,9 @@ impl Segment {
         }
     }
 
-    fn apply_near_zero(&mut self) -> u64 {
+    fn apply_near_zero(&mut self, thresholds: &Thresholds) -> u64 {
         let mut count: u64 = 0;
-        let near_zero = max(&self.pickup) * MINUS_65_DB;
+        let near_zero = max(&self.pickup) * thresholds.near_zero;
         for i in 0..self.mic.len() {
             if self.pickup[i].abs() < near_zero {
                 self.pickup[i] = ONE;
