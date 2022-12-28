@@ -1,6 +1,6 @@
 [package]
 name = "irgen"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "GPL-3.0-or-later"
 description = "create IR files to enahnce the signal of an acoustic instrument pickups."
