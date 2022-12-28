@@ -280,7 +280,7 @@ fn scale_factor(bits_per_sample: u16) -> f64 {
     }
 }
 
-pub fn generate_from_wav(input_file: String, output_file: String) -> Result {
+pub fn generate_from_wav(input_file: String, output_file: String, options: Options) -> Result {
     let mut reader = WavReader::open(input_file).expect("Failed to open WAV file.");
     let spec = reader.spec();
     if spec.channels != 2 {
@@ -298,8 +298,9 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> Result {
 
     let options = Options {
         sample_rate: spec.sample_rate,
-        ..Default::default()
+        ..options
     };
+
     let mut generator = Generator::new(options);
     let mut done = false;
     while !done {

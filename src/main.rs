@@ -14,5 +14,5 @@ struct Args {
 
 pub fn main() {
     let args = Args::parse();
-    irgen::generate_from_wav(args.input_file, args.output_file);
+    irgen::generate_from_wav(args.input_file, args.output_file, Default::default());
 }
