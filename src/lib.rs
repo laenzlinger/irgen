@@ -220,19 +220,11 @@ fn max(samples: &[Complex64]) -> f64 {
     samples.iter().map(|c| c.abs()).reduce(f64::max).unwrap()
 }
 
-const MIN_DURATION_SECONDS: u32 = 30;
-
 pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     let mut reader = WavReader::open(input_file).expect("Failed to open WAV file");
     let spec = reader.spec();
     if spec.channels != 2 {
         panic!("Only stereo wav files are supported");
-    }
-    let duration: f32 = reader.duration() as f32 / spec.sample_rate as f32;
-    if duration < MIN_DURATION_SECONDS as f32 {
-        panic!(
-            "Input .wav needs to be at least {MIN_DURATION_SECONDS}s long, but was {duration:.2}s"
-        );
     }
     let scale_factor = match spec.sample_format {
         SampleFormat::Int => match spec.bits_per_sample {
