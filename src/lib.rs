@@ -247,9 +247,11 @@ impl Accumulator {
             sample_format: hound::SampleFormat::Int,
         };
         let mut writer = hound::WavWriter::create(filename, spec).unwrap();
-        for s in self.result[0..options.ir_size].iter() {
-            let sample = (s.re() * SCALE_16_BIT_PCM) as i32;
-            writer.write_sample(sample).unwrap();
+        for s in self.result[0..options.ir_size]
+            .iter()
+            .map(|s| (s.re() * SCALE_16_BIT_PCM) as i32)
+        {
+            writer.write_sample(s).unwrap();
         }
     }
 }
