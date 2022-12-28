@@ -123,7 +123,7 @@ impl Segment {
         let max = max(&self.mic).max(max(&self.pickup));
         let clip = max > 0.999;
         let too_low = max < 0.178;
-        return !(clip || too_low);
+        !(clip || too_low)
     }
     fn apply_window(&mut self) {
         let mut window = apodize::blackman_iter(self.mic.len());
