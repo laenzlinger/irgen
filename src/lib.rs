@@ -89,15 +89,7 @@ impl Generator {
         if self.accu.done() {
             return true;
         }
-        let ready = self.segment.add(frame);
-        if ready {
-            let done = self.segment.process(&mut self.accu, &self.options);
-            if done {
-                self.accu.process();
-                return true;
-            }
-        }
-        false
+        self.segment.add(frame, &mut self.accu, &self.options)
     }
 
     pub fn avg_near_zero_count(&self) -> u64 {
@@ -129,15 +121,20 @@ impl Segment {
         }
     }
 
-    fn add(&mut self, frame: Frame) -> bool {
+    fn add(&mut self, frame: Frame, accu: &mut Accumulator, options: &Options) -> bool {
         self.mic[self.frame_count] = Complex64::new(frame.mic, 0f64);
         self.pickup[self.frame_count] = Complex64::new(frame.pickup, 0f64);
         self.frame_count += 1;
         let ready = self.frame_count == self.mic.len();
         if ready {
             self.frame_count = 0;
+            let done = self.process(accu, options);
+            if done {
+                accu.process();
+                return true;
+            }
         }
-        ready
+        false
     }
 
     fn process(&mut self, accu: &mut Accumulator, options: &Options) -> bool {
