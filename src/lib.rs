@@ -6,10 +6,6 @@ use std::sync::Arc;
 use num::complex::ComplexFloat;
 use rustfft::{num_complex::Complex64, Fft, FftPlanner};
 
-// wav file handling
-pub const SCALE_24_BIT_PCM: f64 = 8388608.0;
-pub const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
-
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 
 pub struct Frame {
@@ -36,6 +32,7 @@ pub struct Options {
     segment_size: usize,
     ir_size: usize,
     sample_rate: u32,
+    bits_per_sample: u16,
     thresholds: Thresholds,
 }
 
@@ -54,6 +51,7 @@ impl Default for Options {
         Options {
             segment_size: 131072, // 2^17
             sample_rate: 48000,
+            bits_per_sample: 16,
             ir_size: 2048,
             thresholds: Default::default(),
         }
@@ -243,7 +241,7 @@ impl Accumulator {
         let spec = hound::WavSpec {
             channels: 1,
             sample_rate: options.sample_rate,
-            bits_per_sample: 16,
+            bits_per_sample: options.bits_per_sample,
             sample_format: hound::SampleFormat::Int,
         };
         let mut writer = hound::WavWriter::create(filename, spec).unwrap();
@@ -260,6 +258,9 @@ impl Accumulator {
 fn max(samples: &[Complex64]) -> f64 {
     samples.iter().map(|c| c.abs()).reduce(f64::max).unwrap()
 }
+
+pub const SCALE_24_BIT_PCM: f64 = 8388608.0;
+pub const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
 
 fn scale_factor(bits_per_sample: u16) -> f64 {
     match bits_per_sample {
