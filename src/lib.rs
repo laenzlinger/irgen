@@ -9,10 +9,8 @@ use rustfft::{num_complex::Complex64, Fft, FftPlanner};
 // wav file handling
 pub const SCALE_24_BIT_PCM: f64 = 8388608.0;
 pub const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
-pub const DEFAULT_SAMPLE_RATE: u32 = 48000;
 
 // Algorithm
-const DEFAULT_SEGMENT_SIZE: usize = 131072; // 2^17
 const IR_SIZE: usize = 2048;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 const MINUS_65_DB: f64 = 0.0005623413251903491;
@@ -33,29 +31,43 @@ impl Frame {
     }
 }
 
+pub struct Options {
+    segment_size: usize,
+    sample_rate: u32,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Options {
+            segment_size: 131072, // 2^17
+            sample_rate: 48000,
+        }
+    }
+}
+
 pub struct Generator {
     segment: Segment,
     accu: Accumulator,
+    options: Options,
     frame_count: usize,
-    sample_rate: u32,
 }
 
 impl Default for Generator {
     fn default() -> Self {
-        Self::new(DEFAULT_SAMPLE_RATE, DEFAULT_SEGMENT_SIZE)
+        Self::new(Default::default())
     }
 }
 
 impl Generator {
-    pub fn new(sample_rate: u32, segment_size: usize) -> Generator {
+    pub fn new(options: Options) -> Generator {
         let mut planner = FftPlanner::<f64>::new();
-        let segment = Segment::new(&mut planner, segment_size);
-        let accu = Accumulator::new(&mut planner, segment_size);
+        let segment = Segment::new(&mut planner, options.segment_size);
+        let accu = Accumulator::new(&mut planner, options.segment_size);
 
         Generator {
             segment,
             accu,
-            sample_rate,
+            options,
             frame_count: 0,
         }
     }
@@ -83,7 +95,7 @@ impl Generator {
     }
 
     pub fn write(&self, file_name: String) {
-        self.accu.write(file_name, self.sample_rate);
+        self.accu.write(file_name, self.options.sample_rate);
     }
 }
 
@@ -246,7 +258,11 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
         .filter_map(|s| s.ok()) // ignore the errors while reading
         .map(|s| s as f64 / scale_factor); // normalize to +-1.0
 
-    let mut generator = Generator::new(spec.sample_rate, DEFAULT_SEGMENT_SIZE);
+    let options = Options {
+        sample_rate: spec.sample_rate,
+        ..Default::default()
+    };
+    let mut generator = Generator::new(options);
     let mut done = false;
     while !done {
         done = samples
@@ -267,6 +283,6 @@ mod tests {
     #[test]
     fn can_create() {
         let generator: Generator = Default::default();
-        assert_eq!(generator.sample_rate, DEFAULT_SAMPLE_RATE)
+        assert_eq!(generator.options.sample_rate, 48000)
     }
 }
