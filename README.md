@@ -10,3 +10,28 @@ The following algorithms are implemented:
 
 WARNING: The API is still under development and will very likely change. 
 Please don't expect any API stability at the moment.
+
+## Installation
+
+Pre-Requesite: Install [Rust](https://www.rust-lang.org/tools/install)
+
+```
+cargo install irgen
+```
+
+## Comand Line Interface
+
+
+Run the help:
+```
+irgen -h
+create IR files to enahnce the signal of an acoustic instrument pickups.
+
+Usage: irgen --input-file <INPUT_FILE> --output-file <OUTPUT_FILE>
+
+Options:
+  -i, --input-file <INPUT_FILE>    Stereo .waf file (left: pickup, right: mic)
+  -o, --output-file <OUTPUT_FILE>  File to write the IR wav file
+  -h, --help                       Print help information
+  -V, --version                    Print version information
+```
