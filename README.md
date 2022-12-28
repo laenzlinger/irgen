@@ -1,5 +1,5 @@
 # irgen
-IR generator for acoustic guitar pickup enhancement.
+Create IR files to enhance the signal of an acoustic instrument pickups.
 
 Library for creating Impulse Response (IR) files by comparing the
 sound of a microphone with the sound of the pickup.

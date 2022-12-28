@@ -1,9 +1,9 @@
 [package]
 name = "irgen"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "GPL-3.0-or-later"
-description = "create IR files to enahnce the signal of an acoustic instrument pickups."
+description = "Create IR files to enhance the signal of acoustic instrument pickups"
 homepage = "https://github.com/laenzlinger/irgen"
 repository = "https://github.com/laenzlinger/irgen"
 readme = "README.md"
