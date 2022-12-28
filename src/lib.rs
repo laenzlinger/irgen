@@ -1,4 +1,4 @@
-use hound::WavReader;
+use hound::{SampleFormat, WavReader};
 use std::ops::{Add, Div};
 use std::sync::Arc;
 
@@ -226,20 +226,27 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     let mut reader = WavReader::open(input_file).expect("Failed to open WAV file");
     let spec = reader.spec();
     if spec.channels != 2 {
-        panic!("only stereo wav files are supported");
-    }
-    if spec.sample_format == hound::SampleFormat::Float {
-        panic!("float format is not supported");
+        panic!("Only stereo wav files are supported");
     }
     let duration: f32 = reader.duration() as f32 / spec.sample_rate as f32;
     if duration < MIN_DURATION_SECONDS as f32 {
-        panic!("sample needs to be at least {MIN_DURATION_SECONDS}s long, but was {duration:.2}s");
+        panic!(
+            "Input .wav needs to be at least {MIN_DURATION_SECONDS}s long, but was {duration:.2}s"
+        );
     }
+    let scale_factor = match spec.sample_format {
+        SampleFormat::Int => match spec.bits_per_sample {
+            24 => SCALE_24_BIT_PCM,
+            16 => SCALE_16_BIT_PCM,
+            _ => panic!("Input file contains unsupported 'bits per sample' value."),
+        },
+        SampleFormat::Float => 1.0,
+    };
 
     let mut samples = reader
         .samples::<i32>()
         .filter_map(|s| s.ok()) // ignore the errors while reading
-        .map(|s| s as f64 / SCALE_24_BIT_PCM); // normalize 24bit to +-1.0
+        .map(|s| s as f64 / scale_factor); // normalize 24bit to +-1.0
 
     let mut generator = Generator::new();
     let mut done = false;
