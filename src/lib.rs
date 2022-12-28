@@ -247,9 +247,10 @@ impl Accumulator {
             sample_format: hound::SampleFormat::Int,
         };
         let mut writer = hound::WavWriter::create(filename, spec).unwrap();
+        let scale_factor = scale_factor(spec.bits_per_sample);
         for s in self.result[0..options.ir_size]
             .iter()
-            .map(|s| (s.re() * SCALE_16_BIT_PCM) as i32)
+            .map(|s| (s.re() * scale_factor) as i32)
         {
             writer.write_sample(s).unwrap();
         }
@@ -267,6 +268,7 @@ fn scale_factor(bits_per_sample: u16) -> f64 {
         _ => panic!("Input .waf contains unsupported 'bits per sample' value."),
     }
 }
+
 pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     let mut reader = WavReader::open(input_file).expect("Failed to open WAV file.");
     let spec = reader.spec();
