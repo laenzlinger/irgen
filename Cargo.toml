@@ -2,7 +2,11 @@
 name = "irgen"
 version = "0.1.0"
 edition = "2021"
-
+license-file = "LICENSE.txt"
+description = "create IR files to enahnce the signal of an acoustic instrument pickups."
+homepage = "https://github.com/laenzlinger/irgen"
+repository = "https://github.com/laenzlinger/irgen"
+readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
