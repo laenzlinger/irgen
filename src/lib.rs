@@ -8,13 +8,15 @@ use rustfft::{num_complex::Complex64, Fft, FftPlanner};
 // wav file handling
 pub const SCALE_24_BIT_PCM: f64 = 8388608.0;
 pub const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
+pub const DEFAULT_SAMPLE_RATE: u32 = 48000;
 
 // Algorithm
 const SEGMENT_SIZE: usize = 131072; // 2^17
 const IR_SIZE: usize = 2048;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 const MINUS_65_DB: f64 = 0.0005623413251903491;
-const DEFAULT_SAMPLE_RATE: u32 = 48000;
+const CLIP_THRESHOLD: f64 = 0.999;
+const TOO_LOW_THRESHOLD: f64 = 0.178;
 
 pub struct Frame {
     pickup: f64,
@@ -124,8 +126,8 @@ impl Segment {
 
     fn is_valid(&mut self) -> bool {
         let max = max(&self.mic).max(max(&self.pickup));
-        let clip = max > 0.999;
-        let too_low = max < 0.178;
+        let clip = max > CLIP_THRESHOLD;
+        let too_low = max < TOO_LOW_THRESHOLD;
         !(clip || too_low)
     }
     fn apply_window(&mut self) {
