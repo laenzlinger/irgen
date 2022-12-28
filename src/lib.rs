@@ -12,7 +12,7 @@ pub const SCALE_16_BIT_PCM: f64 = std::i16::MAX as f64;
 pub const DEFAULT_SAMPLE_RATE: u32 = 48000;
 
 // Algorithm
-const SEGMENT_SIZE: usize = 131072; // 2^17
+const DEFAULT_SEGMENT_SIZE: usize = 131072; // 2^17
 const IR_SIZE: usize = 2048;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 const MINUS_65_DB: f64 = 0.0005623413251903491;
@@ -42,15 +42,15 @@ pub struct Generator {
 
 impl Default for Generator {
     fn default() -> Self {
-        Self::new(DEFAULT_SAMPLE_RATE)
+        Self::new(DEFAULT_SAMPLE_RATE, DEFAULT_SEGMENT_SIZE)
     }
 }
 
 impl Generator {
-    pub fn new(sample_rate: u32) -> Generator {
+    pub fn new(sample_rate: u32, segment_size: usize) -> Generator {
         let mut planner = FftPlanner::<f64>::new();
-        let segment = Segment::new(&mut planner);
-        let accu = Accumulator::new(&mut planner);
+        let segment = Segment::new(&mut planner, segment_size);
+        let accu = Accumulator::new(&mut planner, segment_size);
 
         Generator {
             segment,
@@ -67,7 +67,7 @@ impl Generator {
         self.segment.mic[self.frame_count] = Complex64::new(frame.mic, 0f64);
         self.segment.pickup[self.frame_count] = Complex64::new(frame.pickup, 0f64);
         self.frame_count += 1;
-        if self.frame_count == SEGMENT_SIZE {
+        if self.frame_count == self.segment.mic.len() {
             self.frame_count = 0;
             let done = self.segment.process(&mut self.accu);
             if done {
@@ -95,12 +95,12 @@ struct Segment {
 }
 
 impl Segment {
-    fn new(planner: &mut FftPlanner<f64>) -> Segment {
-        let fft = planner.plan_fft_forward(SEGMENT_SIZE);
+    fn new(planner: &mut FftPlanner<f64>, segment_size: usize) -> Segment {
+        let fft = planner.plan_fft_forward(segment_size);
         Segment {
             count: 0,
-            mic: vec![Complex64::zero(); SEGMENT_SIZE],
-            pickup: vec![Complex64::zero(); SEGMENT_SIZE],
+            mic: vec![Complex64::zero(); segment_size],
+            pickup: vec![Complex64::zero(); segment_size],
             fft,
         }
     }
@@ -162,12 +162,12 @@ struct Accumulator {
 }
 
 impl Accumulator {
-    fn new(planner: &mut FftPlanner<f64>) -> Accumulator {
-        let ifft = planner.plan_fft_inverse(SEGMENT_SIZE);
+    fn new(planner: &mut FftPlanner<f64>, segment_size: usize) -> Accumulator {
+        let ifft = planner.plan_fft_inverse(segment_size);
         Accumulator {
             count: 0,
             near_zero_count: 0,
-            result: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
+            result: vec![Complex64::zero(); segment_size],
             ifft,
         }
     }
@@ -244,9 +244,9 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     let mut samples = reader
         .samples::<i32>()
         .filter_map(|s| s.ok()) // ignore the errors while reading
-        .map(|s| s as f64 / scale_factor); // normalize 24bit to +-1.0
+        .map(|s| s as f64 / scale_factor); // normalize to +-1.0
 
-    let mut generator = Generator::new(spec.sample_rate);
+    let mut generator = Generator::new(spec.sample_rate, DEFAULT_SEGMENT_SIZE);
     let mut done = false;
     while !done {
         done = samples
@@ -266,6 +266,7 @@ mod tests {
 
     #[test]
     fn can_create() {
-        Generator::new(DEFAULT_SAMPLE_RATE);
+        let generator: Generator = Default::default();
+        assert_eq!(generator.sample_rate, DEFAULT_SAMPLE_RATE)
     }
 }
