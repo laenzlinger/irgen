@@ -93,6 +93,8 @@ impl Generator {
     pub fn result(&self) -> Result {
         Result {
             avg_near_zero_count: self.accu.avg_near_zero_count(),
+            segment_count: self.accu.count,
+            impulse_response: self.accu.result.iter().map(|s| s.re()).collect(),
         }
     }
 
@@ -103,6 +105,8 @@ impl Generator {
 
 pub struct Result {
     pub avg_near_zero_count: u64,
+    pub segment_count: u32,
+    pub impulse_response: Vec<f64>,
 }
 
 struct Segment {
