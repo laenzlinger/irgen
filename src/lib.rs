@@ -14,6 +14,7 @@ const SEGMENT_SIZE: usize = 131072; // 2^17
 const IR_SIZE: usize = 2048;
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 const MINUS_65_DB: f64 = 0.0005623413251903491;
+const DEFAULT_SAMPLE_RATE: u32 = 48000;
 
 pub struct Frame {
     pickup: f64,
@@ -33,16 +34,17 @@ pub struct Generator {
     segment: Segment,
     accu: Accumulator,
     frame_count: usize,
+    sample_rate: u32,
 }
 
 impl Default for Generator {
     fn default() -> Self {
-        Self::new()
+        Self::new(DEFAULT_SAMPLE_RATE)
     }
 }
 
 impl Generator {
-    pub fn new() -> Generator {
+    pub fn new(sample_rate: u32) -> Generator {
         let mut planner = FftPlanner::<f64>::new();
         let segment = Segment::new(&mut planner);
         let accu = Accumulator::new(&mut planner);
@@ -50,6 +52,7 @@ impl Generator {
         Generator {
             segment,
             accu,
+            sample_rate,
             frame_count: 0,
         }
     }
@@ -77,7 +80,7 @@ impl Generator {
     }
 
     pub fn write(&self, file_name: String) {
-        self.accu.write(file_name);
+        self.accu.write(file_name, self.sample_rate);
     }
 }
 
@@ -201,10 +204,10 @@ impl Accumulator {
         self.count > 3
     }
 
-    fn write(&self, filename: String) {
+    fn write(&self, filename: String, sample_rate: u32) {
         let spec = hound::WavSpec {
             channels: 1,
-            sample_rate: 48000,
+            sample_rate,
             bits_per_sample: 16,
             sample_format: hound::SampleFormat::Int,
         };
@@ -221,16 +224,16 @@ fn max(samples: &[Complex64]) -> f64 {
 }
 
 pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
-    let mut reader = WavReader::open(input_file).expect("Failed to open WAV file");
+    let mut reader = WavReader::open(input_file).expect("Failed to open WAV file.");
     let spec = reader.spec();
     if spec.channels != 2 {
-        panic!("Only stereo wav files are supported");
+        panic!("Only stereo .wav files are supported.");
     }
     let scale_factor = match spec.sample_format {
         SampleFormat::Int => match spec.bits_per_sample {
             24 => SCALE_24_BIT_PCM,
             16 => SCALE_16_BIT_PCM,
-            _ => panic!("Input file contains unsupported 'bits per sample' value."),
+            _ => panic!("Input .waf contains unsupported 'bits per sample' value."),
         },
         SampleFormat::Float => 1.0,
     };
@@ -240,7 +243,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
         .filter_map(|s| s.ok()) // ignore the errors while reading
         .map(|s| s as f64 / scale_factor); // normalize 24bit to +-1.0
 
-    let mut generator = Generator::new();
+    let mut generator = Generator::new(spec.sample_rate);
     let mut done = false;
     while !done {
         done = samples
@@ -260,6 +263,6 @@ mod tests {
 
     #[test]
     fn can_create() {
-        Generator::new();
+        Generator::new(DEFAULT_SAMPLE_RATE);
     }
 }
