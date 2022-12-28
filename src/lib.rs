@@ -280,7 +280,11 @@ fn scale_factor(bits_per_sample: u16) -> f64 {
     }
 }
 
-pub fn generate_from_wav(input_file: String, output_file: String, options: Options) -> Result {
+pub fn generate_from_wav(
+    input_file: String,
+    output_file: Option<String>,
+    options: Options,
+) -> Result {
     let mut reader = WavReader::open(input_file).expect("Failed to open WAV file.");
     let spec = reader.spec();
     if spec.channels != 2 {
@@ -310,8 +314,9 @@ pub fn generate_from_wav(input_file: String, output_file: String, options: Optio
             .map(Frame::new)
             .map_or(true, |frame| generator.process(frame));
     }
-
-    generator.write(output_file);
+    if let Some(of) = output_file {
+        generator.write(of)
+    }
     generator.result()
 }
 
