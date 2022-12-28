@@ -88,7 +88,7 @@ impl Generator {
 }
 
 struct Segment {
-    count: u8,
+    count: u32,
     mic: Vec<Complex64>,
     pickup: Vec<Complex64>,
     fft: Arc<dyn Fft<f64>>,
@@ -155,7 +155,7 @@ impl Segment {
 }
 
 struct Accumulator {
-    count: u8,
+    count: u32,
     near_zero_count: u64,
     result: Vec<Complex64>,
     ifft: Arc<dyn Fft<f64>>,
