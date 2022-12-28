@@ -7,6 +7,9 @@ description = "create IR files to enahnce the signal of an acoustic instrument p
 homepage = "https://github.com/laenzlinger/irgen"
 repository = "https://github.com/laenzlinger/irgen"
 readme = "README.md"
+exclude = [
+    "test/data/*",
+]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
