@@ -260,6 +260,13 @@ fn max(samples: &[Complex64]) -> f64 {
     samples.iter().map(|c| c.abs()).reduce(f64::max).unwrap()
 }
 
+fn scale_factor(bits_per_sample: u16) -> f64 {
+    match bits_per_sample {
+        24 => SCALE_24_BIT_PCM,
+        16 => SCALE_16_BIT_PCM,
+        _ => panic!("Input .waf contains unsupported 'bits per sample' value."),
+    }
+}
 pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
     let mut reader = WavReader::open(input_file).expect("Failed to open WAV file.");
     let spec = reader.spec();
@@ -267,11 +274,7 @@ pub fn generate_from_wav(input_file: String, output_file: String) -> u64 {
         panic!("Only stereo .wav files are supported.");
     }
     let scale_factor = match spec.sample_format {
-        SampleFormat::Int => match spec.bits_per_sample {
-            24 => SCALE_24_BIT_PCM,
-            16 => SCALE_16_BIT_PCM,
-            _ => panic!("Input .waf contains unsupported 'bits per sample' value."),
-        },
+        SampleFormat::Int => scale_factor(spec.bits_per_sample),
         SampleFormat::Float => 1.0,
     };
 
