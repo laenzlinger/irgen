@@ -1,4 +1,7 @@
 # irgen
+
+[![Build Status][travis-badge]][travis-url] [![Current Crates.io Version][crates-badge]][crates-url]
+
 Create IR files to enhance the signal of an acoustic instrument pickups.
 
 Library for creating Impulse Response (IR) files by comparing the
