@@ -1,4 +1,5 @@
 use hound::{SampleFormat, WavReader};
+use num::Zero;
 use std::ops::{Add, Div};
 use std::sync::Arc;
 
@@ -98,8 +99,8 @@ impl Segment {
         let fft = planner.plan_fft_forward(SEGMENT_SIZE);
         Segment {
             count: 0,
-            mic: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
-            pickup: vec![Complex64::new(0.0, 0.0); SEGMENT_SIZE],
+            mic: vec![Complex64::zero(); SEGMENT_SIZE],
+            pickup: vec![Complex64::zero(); SEGMENT_SIZE],
             fft,
         }
     }
