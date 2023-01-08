@@ -1,10 +1,9 @@
+use easyfft::num_complex::Complex64;
+use easyfft::num_complex::ComplexFloat;
+use easyfft::prelude::*;
 use hound::{SampleFormat, WavReader};
 use num::Zero;
 use std::ops::{Add, Div};
-use std::sync::Arc;
-
-use num::complex::ComplexFloat;
-use rustfft::{num_complex::Complex64, Fft, FftPlanner};
 
 const ONE: Complex64 = Complex64::new(1.0, 0f64);
 
@@ -93,9 +92,8 @@ impl Default for Generator {
 
 impl Generator {
     pub fn new(options: Options) -> Generator {
-        let mut planner = FftPlanner::<f64>::new();
-        let segment = Segment::new(&mut planner, &options);
-        let accu = Accumulator::new(&mut planner, options.segment_size);
+        let segment = Segment::new(&options);
+        let accu = Accumulator::new(options.segment_size);
 
         Generator {
             segment,
@@ -146,20 +144,17 @@ pub struct Result {
 struct Segment {
     mic: Vec<Complex64>,
     pickup: Vec<Complex64>,
-    fft: Arc<dyn Fft<f64>>,
     count: u32,
     frame_count: usize,
 }
 
 impl Segment {
-    fn new(planner: &mut FftPlanner<f64>, options: &Options) -> Segment {
-        let fft = planner.plan_fft_forward(options.segment_size);
+    fn new(options: &Options) -> Segment {
         Segment {
             count: 0,
             frame_count: 0,
             mic: vec![Complex64::zero(); options.segment_size],
             pickup: vec![Complex64::zero(); options.segment_size],
-            fft,
         }
     }
 
@@ -192,8 +187,8 @@ impl Segment {
         }
 
         self.apply_window();
-        self.fft.process(&mut self.mic);
-        self.fft.process(&mut self.pickup);
+        self.mic.fft_mut();
+        self.pickup.fft_mut();
         let near_zero_count = self.apply_near_zero(&options.thresholds);
         accu.accumulate(self, near_zero_count);
         accu.done()
@@ -232,17 +227,14 @@ struct Accumulator {
     count: u32,
     near_zero_count: u64,
     result: Vec<Complex64>,
-    ifft: Arc<dyn Fft<f64>>,
 }
 
 impl Accumulator {
-    fn new(planner: &mut FftPlanner<f64>, segment_size: usize) -> Accumulator {
-        let ifft = planner.plan_fft_inverse(segment_size);
+    fn new(segment_size: usize) -> Accumulator {
         Accumulator {
             count: 0,
             near_zero_count: 0,
             result: vec![Complex64::zero(); segment_size],
-            ifft,
         }
     }
 
@@ -252,7 +244,7 @@ impl Accumulator {
             panic!("No segments were processed");
         }
 
-        self.ifft.process(&mut self.result);
+        self.result.ifft_mut();
         self.normalize();
     }
 
